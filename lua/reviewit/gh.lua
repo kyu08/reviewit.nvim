@@ -1,0 +1,182 @@
+local M = {}
+
+--- Run a gh command asynchronously.
+--- @param args string[] arguments to pass to `gh`
+--- @param callback fun(err: string|nil, stdout: string|nil)
+function M.run(args, callback)
+	vim.system(vim.list_extend({ "gh" }, args), { text = true }, function(result)
+		vim.schedule(function()
+			if result.code ~= 0 then
+				callback(result.stderr or "gh command failed", nil)
+			else
+				callback(nil, result.stdout)
+			end
+		end)
+	end)
+end
+
+--- Run a gh command and parse the JSON output.
+--- @param args string[] arguments to pass to `gh`
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.run_json(args, callback)
+	M.run(args, function(err, stdout)
+		if err then
+			return callback(err, nil)
+		end
+		local ok, parsed = pcall(vim.json.decode, stdout)
+		if not ok then
+			return callback("JSON parse error: " .. tostring(parsed), nil)
+		end
+		callback(nil, parsed)
+	end)
+end
+
+--- Get PR info for the current branch.
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.get_pr_info(callback)
+	M.run_json({ "pr", "view", "--json", "number,baseRefName,headRefName,url" }, callback)
+end
+
+--- Get the list of files changed in a PR.
+--- @param pr_number number
+--- @param callback fun(err: string|nil, files: table|nil)
+function M.get_pr_files(pr_number, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/files",
+		"--paginate",
+	}, callback)
+end
+
+--- Get review comments on a PR.
+--- @param pr_number number
+--- @param callback fun(err: string|nil, comments: table|nil)
+function M.get_pr_comments(pr_number, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/comments",
+		"--paginate",
+	}, callback)
+end
+
+--- Create a single-line review comment.
+--- @param pr_number number
+--- @param commit_id string
+--- @param path string repo-relative file path
+--- @param line number line number in the file
+--- @param body string comment body
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.create_comment(pr_number, commit_id, path, line, body, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/comments",
+		"--method",
+		"POST",
+		"-f",
+		"body=" .. body,
+		"-f",
+		"commit_id=" .. commit_id,
+		"-f",
+		"path=" .. path,
+		"-F",
+		"line=" .. line,
+		"-f",
+		"side=RIGHT",
+	}, callback)
+end
+
+--- Create a multi-line review comment.
+--- @param pr_number number
+--- @param commit_id string
+--- @param path string repo-relative file path
+--- @param start_line number start line number
+--- @param end_line number end line number
+--- @param body string comment body
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.create_comment_range(pr_number, commit_id, path, start_line, end_line, body, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/comments",
+		"--method",
+		"POST",
+		"-f",
+		"body=" .. body,
+		"-f",
+		"commit_id=" .. commit_id,
+		"-f",
+		"path=" .. path,
+		"-F",
+		"line=" .. end_line,
+		"-F",
+		"start_line=" .. start_line,
+		"-f",
+		"side=RIGHT",
+		"-f",
+		"start_side=RIGHT",
+	}, callback)
+end
+
+--- Reply to an existing review comment.
+--- @param pr_number number
+--- @param comment_id number
+--- @param body string reply body
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.reply_to_comment(pr_number, comment_id, body, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/comments/" .. comment_id .. "/replies",
+		"--method",
+		"POST",
+		"-f",
+		"body=" .. body,
+	}, callback)
+end
+
+--- Get extended PR info for overview display.
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.get_pr_overview(callback)
+	M.run_json({
+		"pr",
+		"view",
+		"--json",
+		"number,title,body,labels,state,author,baseRefName,headRefName,url",
+	}, callback)
+end
+
+--- Get issue-level comments on a PR (non-code-bound comments).
+--- @param pr_number number
+--- @param callback fun(err: string|nil, comments: table|nil)
+function M.get_issue_comments(pr_number, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/issues/" .. pr_number .. "/comments",
+		"--paginate",
+	}, callback)
+end
+
+--- Create an issue-level comment on a PR.
+--- @param pr_number number
+--- @param body string comment body
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.create_issue_comment(pr_number, body, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/issues/" .. pr_number .. "/comments",
+		"--method",
+		"POST",
+		"-f",
+		"body=" .. body,
+	}, callback)
+end
+
+--- Get the HEAD commit SHA (synchronous, local git operation).
+--- @return string|nil sha, string|nil err
+function M.get_head_sha()
+	local result = vim.system({ "git", "rev-parse", "HEAD" }, { text = true }):wait()
+	if result.code == 0 then
+		return vim.trim(result.stdout), nil
+	end
+	return nil, "Failed to get HEAD SHA"
+end
+
+return M

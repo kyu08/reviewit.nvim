@@ -1,0 +1,54 @@
+local M = {}
+local config = require("reviewit.config")
+
+--- Show PR overview. Works with or without active review mode.
+function M.show()
+	local gh = require("reviewit.gh")
+	local ui = require("reviewit.ui")
+
+	gh.get_pr_overview(function(err, pr_info)
+		if err then
+			vim.notify("reviewit.nvim: No PR found: " .. (err or ""), vim.log.levels.ERROR)
+			return
+		end
+
+		gh.get_issue_comments(pr_info.number, function(comments_err, issue_comments)
+			if comments_err then
+				issue_comments = {}
+			end
+
+			ui.show_overview_float(pr_info, issue_comments, {
+				on_new_comment = function()
+					M.create_comment(pr_info.number)
+				end,
+				on_refresh = function()
+					M.show()
+				end,
+			})
+		end)
+	end)
+end
+
+--- Create a new issue-level comment on the PR.
+--- @param pr_number number
+function M.create_comment(pr_number)
+	local ui = require("reviewit.ui")
+	local gh = require("reviewit.gh")
+
+	ui.open_comment_input(function(body)
+		if not body then
+			return
+		end
+
+		gh.create_issue_comment(pr_number, body, function(err, _)
+			if err then
+				vim.notify("reviewit.nvim: Failed to post comment: " .. err, vim.log.levels.ERROR)
+				return
+			end
+			vim.notify("reviewit.nvim: Comment posted", vim.log.levels.INFO)
+			M.show()
+		end)
+	end)
+end
+
+return M
