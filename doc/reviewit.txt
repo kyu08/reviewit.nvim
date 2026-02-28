@@ -83,6 +83,11 @@ Using lazy.nvim: >lua
     Works without starting review mode.
     Press `c` to write a new comment, `R` to refresh, `q` to close.
 
+:ReviewApprove                                              *:ReviewApprove*
+    Approve the current branch's PR. Opens a floating window for an
+    optional comment. Press `<CR>` to approve (with or without a
+    comment), `q` to cancel.
+
 ==============================================================================
 5. KEYMAPS                                                *reviewit-keymaps*
 
@@ -97,6 +102,7 @@ spec or manually. Suggested mappings:
   `<leader>er`  Reply to comment on current line
   `<leader>ef`  List changed files
   `<leader>eo`  PR overview
+  `<leader>ea`  Approve PR
   `]r`          Next comment
   `[r`          Previous comment
 

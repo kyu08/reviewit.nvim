@@ -11,6 +11,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 - **Comment navigation** - Jump between comments with `]r` / `[r`
 - **Changed files** - Browse PR changed files with Telescope (diff preview) or quickfix
 - **PR overview** - View PR title, description, labels, and issue-level comments
+- **Approve PR** - Approve the PR with an optional comment
 - **Gitsigns integration** - Automatically switches gitsigns diff base to PR base branch
 
 ## Requirements
@@ -31,7 +32,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
   cmd = {
     "ReviewStart", "ReviewStop", "ReviewToggle",
     "ReviewComment", "ReviewViewComment",
-    "ReviewFiles", "ReviewOverview",
+    "ReviewFiles", "ReviewOverview", "ReviewApprove",
   },
   keys = {
     { "<leader>et", "<cmd>ReviewToggle<cr>", desc = "Review: Toggle" },
@@ -42,6 +43,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
     { "<leader>ev", "<cmd>ReviewViewComment<cr>", desc = "Review: View comments" },
     { "<leader>ef", "<cmd>ReviewFiles<cr>", desc = "Review: Changed files" },
     { "<leader>eo", "<cmd>ReviewOverview<cr>", desc = "Review: PR Overview" },
+    { "<leader>ea", "<cmd>ReviewApprove<cr>", desc = "Review: Approve PR" },
     {
       "<leader>er",
       function() require("reviewit.comments").reply_to_comment() end,
@@ -76,6 +78,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 | `:ReviewViewComment` | View comments on current line |
 | `:ReviewFiles` | List PR changed files (Telescope/quickfix) |
 | `:ReviewOverview` | Show PR overview and issue-level comments |
+| `:ReviewApprove` | Approve PR with optional comment |
 
 ## Configuration
 

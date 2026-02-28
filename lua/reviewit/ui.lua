@@ -104,6 +104,50 @@ function M.open_comment_input(callback)
 	end, { buffer = buf, desc = "Cancel review comment" })
 end
 
+--- Open a floating window to compose an approve comment.
+--- @param callback fun(body: string|nil) called with comment body (may be nil for no comment)
+function M.open_approve_input(callback)
+	local buf = vim.api.nvim_create_buf(false, true)
+
+	vim.bo[buf].buftype = "nofile"
+	vim.bo[buf].bufhidden = "wipe"
+	vim.bo[buf].filetype = "markdown"
+
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "" })
+
+	local width = math.min(config.opts.float.max_width, math.floor(vim.o.columns * 0.6))
+	local height = math.min(config.opts.float.max_height, math.floor(vim.o.lines * 0.3))
+
+	local win = vim.api.nvim_open_win(buf, true, {
+		relative = "cursor",
+		row = 1,
+		col = 0,
+		width = width,
+		height = height,
+		style = "minimal",
+		border = config.opts.float.border,
+		title = " Approve PR ",
+		title_pos = "center",
+		footer = " <CR> approve | q cancel ",
+		footer_pos = "center",
+	})
+
+	vim.cmd("startinsert")
+
+	vim.keymap.set("n", "<CR>", function()
+		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+		local body = vim.trim(table.concat(lines, "\n"))
+		vim.api.nvim_win_close(win, true)
+		if callback then
+			callback(body ~= "" and body or nil)
+		end
+	end, { buffer = buf, desc = "Approve PR" })
+
+	vim.keymap.set("n", "q", function()
+		vim.api.nvim_win_close(win, true)
+	end, { buffer = buf, desc = "Cancel approve" })
+end
+
 --- Show comments in a floating window.
 --- @param comments table[] list of comment objects from GitHub API
 function M.show_comments_float(comments)

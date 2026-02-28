@@ -169,6 +169,18 @@ function M.create_issue_comment(pr_number, body, callback)
 	}, callback)
 end
 
+--- Approve the current branch's PR with an optional comment.
+--- @param body string|nil optional comment body
+--- @param callback fun(err: string|nil, stdout: string|nil)
+function M.approve_pr(body, callback)
+	local args = { "pr", "review", "--approve" }
+	if body and body ~= "" then
+		table.insert(args, "--body")
+		table.insert(args, body)
+	end
+	M.run(args, callback)
+end
+
 --- Get the HEAD commit SHA (synchronous, local git operation).
 --- @return string|nil sha, string|nil err
 function M.get_head_sha()
