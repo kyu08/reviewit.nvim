@@ -43,3 +43,16 @@ vim.api.nvim_create_user_command("ReviewApprove", function()
 		end)
 	end)
 end, { desc = "Approve PR" })
+
+vim.api.nvim_create_user_command("ReviewBrowse", function()
+	local state = require("reviewit.config").state
+	if state.active and state.pr_url then
+		vim.ui.open(state.pr_url)
+	else
+		require("reviewit.gh").run({ "pr", "view", "--web" }, function(err)
+			if err then
+				vim.notify("reviewit.nvim: " .. err, vim.log.levels.ERROR)
+			end
+		end)
+	end
+end, { desc = "Open PR in browser" })
