@@ -35,10 +35,7 @@ function M.fetch_comments()
 		end
 
 		ui.refresh_extmarks()
-		vim.notify(
-			string.format("reviewit.nvim: Loaded %d comments", #state.comments),
-			vim.log.levels.INFO
-		)
+		vim.notify(string.format("reviewit.nvim: Loaded %d comments", #state.comments), vim.log.levels.INFO)
 	end)
 end
 
@@ -507,8 +504,7 @@ function M.list_drafts()
 			if #body_preview > 60 then
 				body_preview = body_preview:sub(1, 57) .. "..."
 			end
-			local range_str = start_line == end_line and tostring(start_line)
-				or string.format("%d-%d", start_line, end_line)
+			local range_str = start_line == end_line and tostring(start_line) or string.format("%d-%d", start_line, end_line)
 			local detail = string.format("%s:%s  %s", path, range_str, body_preview)
 			table.insert(entries, {
 				value = detail,

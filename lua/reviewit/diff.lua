@@ -54,8 +54,9 @@ function M.get_file_diff(base_ref, file_path)
 		return result.stdout
 	end
 
-	local result2 =
-		vim.system({ "git", "diff", "origin/" .. base_ref .. "...HEAD", "--", file_path }, { text = true }):wait()
+	local result2 = vim
+		.system({ "git", "diff", "origin/" .. base_ref .. "...HEAD", "--", file_path }, { text = true })
+		:wait()
 	if result2.code == 0 then
 		return result2.stdout
 	end

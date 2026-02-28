@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+echo "Running pre-commit checks..."
+
+echo "=> luacheck"
+luacheck lua/ plugin/ tests/
+
+echo "=> stylua --check"
+stylua --check lua/ plugin/ tests/
+
+echo "=> tests"
+bash run_tests.sh
+
+echo "All checks passed."

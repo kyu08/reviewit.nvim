@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  stylua:
+    name: StyLua
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: latest
+          args: --check lua/ plugin/ tests/
+
+  luacheck:
+    name: Luacheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install luacheck
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y luarocks
+          sudo luarocks install luacheck
+      - name: Run luacheck
+        run: luacheck lua/ plugin/ tests/
+
+  tests:
+    name: Tests (Neovim ${{ matrix.nvim_version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        nvim_version:
+          - v0.10.4
+          - stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Neovim
+        run: |
+          curl -sL "https://github.com/neovim/neovim/releases/download/${{ matrix.nvim_version }}/nvim-linux-x86_64.appimage" -o nvim.appimage
+          chmod +x nvim.appimage
+          sudo mkdir -p /opt/nvim
+          ./nvim.appimage --appimage-extract > /dev/null
+          sudo ln -sf "$(pwd)/squashfs-root/AppRun" /usr/bin/nvim
+
+      - name: Run tests
+        run: |
+          nvim --version
+          bash run_tests.sh

@@ -24,7 +24,7 @@ function M.open_preview(source_win)
 		return
 	end
 
-	local content, _err = diff.get_base_content(state.base_ref, rel_path)
+	local content, _ = diff.get_base_content(state.base_ref, rel_path)
 
 	M.close_preview()
 

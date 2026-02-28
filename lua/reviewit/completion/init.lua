@@ -81,14 +81,7 @@ function M.fetch_issues(callback)
 					kind = 15, -- Reference
 					documentation = {
 						kind = "markdown",
-						value = string.format(
-							"**%s #%d**: %s\nState: %s | Author: @%s",
-							kind_label,
-							number,
-							title,
-							state,
-							author
-						),
+						value = string.format("**%s #%d**: %s\nState: %s | Author: @%s", kind_label, number, title, state, author),
 					},
 				})
 			end

@@ -79,9 +79,7 @@ function M.show_telescope()
 			filename = repo_root .. "/" .. file.path,
 			patch = file.patch or "",
 			status_icon = status_icons[file.status] or "?",
-			status_hl = file.status == "added" and "DiffAdd"
-				or file.status == "removed" and "DiffDelete"
-				or "DiffChange",
+			status_hl = file.status == "added" and "DiffAdd" or file.status == "removed" and "DiffDelete" or "DiffChange",
 			additions = file.additions or 0,
 			deletions = file.deletions or 0,
 			display = make_display,
