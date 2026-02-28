@@ -80,11 +80,49 @@ function M.start()
 			callback = function()
 				vim.schedule(function()
 					require("reviewit.ui").refresh_extmarks()
+					M.setup_buf_keymaps()
 				end)
 			end,
-			desc = "reviewit.nvim: Update extmarks",
+			desc = "reviewit.nvim: Update extmarks and keymaps",
 		})
+
+		-- Set keymaps on the current buffer immediately
+		M.setup_buf_keymaps()
 	end)
+end
+
+--- Set buffer-local keymaps for the current buffer during review mode.
+function M.setup_buf_keymaps()
+	local buf = vim.api.nvim_get_current_buf()
+	if vim.bo[buf].buftype ~= "" then
+		return
+	end
+	local km = config.opts.keymaps
+	if km.next_comment then
+		vim.keymap.set("n", km.next_comment, function()
+			require("reviewit.comments").next_comment()
+		end, { buffer = buf, desc = "Review: Next comment" })
+	end
+	if km.prev_comment then
+		vim.keymap.set("n", km.prev_comment, function()
+			require("reviewit.comments").prev_comment()
+		end, { buffer = buf, desc = "Review: Prev comment" })
+	end
+end
+
+--- Remove buffer-local review keymaps from all loaded buffers.
+function M.clear_buf_keymaps()
+	local km = config.opts.keymaps
+	for _, buf in ipairs(vim.api.nvim_list_bufs()) do
+		if vim.api.nvim_buf_is_loaded(buf) then
+			if km.next_comment then
+				pcall(vim.keymap.del, "n", km.next_comment, { buffer = buf })
+			end
+			if km.prev_comment then
+				pcall(vim.keymap.del, "n", km.prev_comment, { buffer = buf })
+			end
+		end
+	end
 end
 
 --- Toggle diff preview window.
@@ -115,6 +153,7 @@ function M.stop()
 
 	require("reviewit.preview").close_preview()
 	require("reviewit.ui").clear_all_extmarks()
+	M.clear_buf_keymaps()
 
 	-- Reset gitsigns back to default (HEAD)
 	local has_gitsigns, gitsigns = pcall(require, "gitsigns")

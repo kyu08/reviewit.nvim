@@ -24,7 +24,7 @@ All plugin code lives under `lua/reviewit/`. The plugin entry point is `plugin/r
 
 ### Module Responsibilities
 
-- **`init.lua`** — Plugin lifecycle (`start`/`stop`/`toggle`). On start: detects PR via `gh`, fetches changed files and comments, sets up `BufEnter`/`WinClosed` autocmds, opens the diff preview, integrates with gitsigns, and applies diffopt settings. On stop: tears everything down and restores original state.
+- **`init.lua`** — Plugin lifecycle (`start`/`stop`/`toggle`). On start: detects PR via `gh`, fetches changed files and comments, sets up `BufEnter`/`WinClosed` autocmds, opens the diff preview, integrates with gitsigns, applies diffopt settings, and sets buffer-local keymaps (`]c`/`[c`) for comment navigation. On stop: tears everything down, removes buffer-local keymaps, and restores original state.
 - **`config.lua`** — Holds `defaults`, merged `opts`, and mutable `state` (active flag, PR metadata, window/buffer handles, comments, namespace ID). `reset_state()` preserves the namespace ID.
 - **`gh.lua`** — Async wrapper around `gh` CLI using `vim.system()`. All GitHub API calls go through `run()`/`run_json()` with callback-based async pattern. Uses `repos/{owner}/{repo}` path templates (resolved by `gh` automatically).
 - **`diff.lua`** — Local git operations (sync). Gets repo root, converts paths to repo-relative, retrieves base branch file content via `git show`, and generates file diffs. Falls back to `origin/<ref>` when local ref isn't available.

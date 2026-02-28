@@ -61,8 +61,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
       function() require("reviewit.comments").reply_to_comment() end,
       desc = "Review: Reply",
     },
-    { "]c", function() require("reviewit.comments").next_comment() end, desc = "Review: Next comment" },
-    { "[c", function() require("reviewit.comments").prev_comment() end, desc = "Review: Prev comment" },
+    -- ]c / [c are set automatically as buffer-local keymaps during review mode
   },
 }
 ```

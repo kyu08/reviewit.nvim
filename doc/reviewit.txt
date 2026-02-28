@@ -127,8 +127,10 @@ Using lazy.nvim: >lua
 ==============================================================================
 5. KEYMAPS                                                *reviewit-keymaps*
 
-No keymaps are set by the plugin itself. Configure them in your lazy.nvim
-spec or manually. Suggested mappings:
+Comment navigation keymaps (]c / [c by default) are set as buffer-local
+mappings during review mode and removed on stop. Other keymaps are not
+set by the plugin. Configure them in your lazy.nvim spec or manually.
+Suggested mappings:
 
   `<leader>et`  Toggle review mode
   `<leader>es`  Start review mode
