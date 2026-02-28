@@ -399,6 +399,20 @@ function M.show_comments_float(comments)
 		end
 	end, { buffer = buf })
 
+	local km = config.opts.keymaps
+	if km.next_comment then
+		vim.keymap.set("n", km.next_comment, function()
+			vim.api.nvim_win_close(win, true)
+			require("reviewit.comments").next_comment()
+		end, { buffer = buf })
+	end
+	if km.prev_comment then
+		vim.keymap.set("n", km.prev_comment, function()
+			vim.api.nvim_win_close(win, true)
+			require("reviewit.comments").prev_comment()
+		end, { buffer = buf })
+	end
+
 	setup_github_refs(buf, get_repo_base_url())
 end
 
