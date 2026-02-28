@@ -348,6 +348,69 @@ function M.list_comments()
 		:find()
 end
 
+--- Suggest a change on the current line or visual selection.
+--- @param is_visual boolean whether the suggestion is for a visual selection
+function M.suggest_change(is_visual)
+	local state = config.state
+	if not state.active or not state.pr_number then
+		vim.notify("reviewit.nvim: Not active", vim.log.levels.WARN)
+		return
+	end
+
+	local buf = vim.api.nvim_get_current_buf()
+	local filepath = vim.api.nvim_buf_get_name(buf)
+	local rel_path = diff.to_repo_relative(filepath)
+	if not rel_path then
+		vim.notify("reviewit.nvim: File not in repository", vim.log.levels.WARN)
+		return
+	end
+
+	local start_line, end_line
+	if is_visual then
+		start_line = vim.fn.line("'<")
+		end_line = vim.fn.line("'>")
+	else
+		start_line = vim.fn.line(".")
+		end_line = start_line
+	end
+
+	local source_lines = vim.api.nvim_buf_get_lines(buf, start_line - 1, end_line, false)
+	local initial_lines = { "```suggestion" }
+	vim.list_extend(initial_lines, source_lines)
+	table.insert(initial_lines, "```")
+
+	ui.open_comment_input(function(body)
+		if not body then
+			return
+		end
+
+		local sha, sha_err = gh.get_head_sha()
+		if not sha then
+			vim.notify("reviewit.nvim: " .. (sha_err or "Unknown error"), vim.log.levels.ERROR)
+			return
+		end
+
+		local on_complete = function(post_err, _)
+			if post_err then
+				vim.notify("reviewit.nvim: Failed to post suggestion: " .. post_err, vim.log.levels.ERROR)
+				return
+			end
+			vim.notify("reviewit.nvim: Suggestion posted", vim.log.levels.INFO)
+			M.fetch_comments()
+		end
+
+		if start_line == end_line then
+			gh.create_comment(state.pr_number, sha, rel_path, end_line, body, on_complete)
+		else
+			gh.create_comment_range(state.pr_number, sha, rel_path, start_line, end_line, body, on_complete)
+		end
+	end, {
+		initial_lines = initial_lines,
+		title = " Suggest Change ",
+		cursor_pos = { 2, 0 },
+	})
+end
+
 --- Navigate to the previous comment in the current file.
 function M.prev_comment()
 	local state = config.state

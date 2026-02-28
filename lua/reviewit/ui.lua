@@ -127,7 +127,13 @@ end
 
 --- Open a floating window to compose a comment.
 --- @param callback fun(body: string|nil) called with comment body or nil if cancelled
-function M.open_comment_input(callback)
+--- @param opts table|nil optional settings: initial_lines, title, footer, cursor_pos
+function M.open_comment_input(callback, opts)
+	opts = opts or {}
+	local initial_lines = opts.initial_lines or { "" }
+	local title = opts.title or " Review Comment "
+	local footer = opts.footer or " <CR> submit | q cancel "
+
 	local buf = vim.api.nvim_create_buf(false, true)
 
 	vim.bo[buf].buftype = "nofile"
@@ -135,7 +141,7 @@ function M.open_comment_input(callback)
 	vim.bo[buf].filetype = "markdown"
 	vim.b[buf].reviewit_comment = true
 
-	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "" })
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, initial_lines)
 
 	local width = math.min(config.opts.float.max_width, math.floor(vim.o.columns * 0.6))
 	local height = math.min(config.opts.float.max_height, math.floor(vim.o.lines * 0.3))
@@ -148,13 +154,18 @@ function M.open_comment_input(callback)
 		height = height,
 		style = "minimal",
 		border = config.opts.float.border,
-		title = " Review Comment ",
+		title = title,
 		title_pos = "center",
-		footer = " <CR> submit | q cancel ",
+		footer = footer,
 		footer_pos = "center",
 	})
 
 	vim.cmd("startinsert")
+
+	if opts.cursor_pos then
+		vim.cmd("stopinsert")
+		vim.api.nvim_win_set_cursor(win, opts.cursor_pos)
+	end
 
 	vim.keymap.set("n", "<CR>", function()
 		local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)

@@ -7,6 +7,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 - **Base branch preview** - Toggle side-by-side diff view showing the base branch version
 - **Follow code jumps** - Preview updates when navigating to other files via LSP
 - **PR comments** - Create, view, and reply to review comments on specific lines
+- **Suggest changes** - Post GitHub suggestion blocks with pre-filled code for one-click apply
 - **Virtual text** - Comment indicators on lines with existing comments
 - **Comment navigation** - Jump between comments with `]r` / `[r`
 - **Changed files** - Browse PR changed files with Telescope (diff preview) or quickfix
@@ -35,7 +36,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
   opts = {},
   cmd = {
     "ReviewStart", "ReviewStop", "ReviewToggle", "ReviewDiff",
-    "ReviewComment", "ReviewViewComment", "ReviewListComments",
+    "ReviewComment", "ReviewSuggest", "ReviewViewComment", "ReviewListComments",
     "ReviewFiles", "ReviewOverview", "ReviewApprove", "ReviewBrowse",
   },
   keys = {
@@ -44,6 +45,8 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
     { "<leader>eq", "<cmd>ReviewStop<cr>", desc = "Review: Stop" },
     { "<leader>ec", "<cmd>ReviewComment<cr>", desc = "Review: Comment", mode = { "n" } },
     { "<leader>ec", ":<C-u>ReviewComment<cr>", desc = "Review: Comment (selection)", mode = { "v" } },
+    { "<leader>eS", "<cmd>ReviewSuggest<cr>", desc = "Review: Suggest change", mode = { "n" } },
+    { "<leader>eS", ":<C-u>ReviewSuggest<cr>", desc = "Review: Suggest change (selection)", mode = { "v" } },
     { "<leader>ev", "<cmd>ReviewViewComment<cr>", desc = "Review: View comments" },
     { "<leader>ef", "<cmd>ReviewFiles<cr>", desc = "Review: Changed files" },
     { "<leader>eo", "<cmd>ReviewOverview<cr>", desc = "Review: PR Overview" },
@@ -83,6 +86,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 | `:ReviewToggle` | Toggle review session |
 | `:ReviewDiff` | Toggle diff preview window |
 | `:ReviewComment` | Comment on current line/selection |
+| `:ReviewSuggest` | Suggest change on current line/selection |
 | `:ReviewViewComment` | View comments on current line |
 | `:ReviewFiles` | List PR changed files (Telescope/quickfix) |
 | `:ReviewOverview` | Show PR overview and issue-level comments |
