@@ -12,6 +12,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 - **Changed files** - Browse PR changed files with Telescope (diff preview) or quickfix
 - **PR overview** - View PR title, description, labels, and issue-level comments
 - **GitHub references** - `#123` and URLs are highlighted and openable with `gx`
+- **GitHub completion** - `@user` and `#issue` completion in comment windows (blink.cmp / nvim-cmp)
 - **Approve PR** - Approve the PR with an optional comment
 - **Gitsigns integration** - Automatically switches gitsigns diff base to PR base branch
 
@@ -21,6 +22,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 - [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated
 - Optional: [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) for file picker
 - Optional: [gitsigns.nvim](https://github.com/lewis6991/gitsigns.nvim) for diff base switching
+- Optional: [blink.cmp](https://github.com/saghen/blink.cmp) or [nvim-cmp](https://github.com/hrsh7th/nvim-cmp) for `@user` / `#issue` completion
 
 ## Installation
 
@@ -107,6 +109,38 @@ require("reviewit").setup({
   },
 })
 ```
+
+## Completion
+
+Comment input windows support `@user` and `#issue/PR` completion.
+
+### blink.cmp
+
+Add the provider to your blink.cmp config:
+
+```lua
+sources = {
+  default = { "lsp", "path", "buffer", "snippets", "reviewit" },
+  providers = {
+    reviewit = {
+      name = "reviewit",
+      module = "reviewit.completion.blink",
+      score_offset = 50,
+      async = true,
+    },
+  },
+},
+```
+
+### nvim-cmp
+
+Register the source in your config:
+
+```lua
+require("cmp").register_source("reviewit", require("reviewit.completion.cmp").new())
+```
+
+Then add `{ name = "reviewit" }` to your nvim-cmp sources.
 
 ## License
 

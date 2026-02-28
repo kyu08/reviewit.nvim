@@ -1,0 +1,39 @@
+--- nvim-cmp source adapter for reviewit.nvim
+--- @class reviewit.cmp.Source
+local source = {}
+
+function source.new()
+	return setmetatable({}, { __index = source })
+end
+
+function source:is_available()
+	return vim.b.reviewit_comment == true
+end
+
+function source:get_trigger_characters()
+	return { "@", "#" }
+end
+
+function source:get_keyword_pattern()
+	return [[\%(@\w*\|#\d*\)]]
+end
+
+function source:complete(params, callback)
+	local core = require("reviewit.completion")
+	local before = params.context.cursor_before_line
+	local context = core.get_context(before)
+
+	if context == "mention" then
+		core.fetch_mentions(function(items)
+			callback(items)
+		end)
+	elseif context == "issue" then
+		core.fetch_issues(function(items)
+			callback(items)
+		end)
+	else
+		callback({})
+	end
+end
+
+return source

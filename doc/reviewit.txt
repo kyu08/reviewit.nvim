@@ -12,6 +12,7 @@ CONTENTS                                                   *reviewit-contents*
   4. Commands .................. |reviewit-commands|
   5. Keymaps ................... |reviewit-keymaps|
   6. Configuration ............. |reviewit-configuration|
+  7. Completion ................ |reviewit-completion|
 
 ==============================================================================
 1. INTRODUCTION                                        *reviewit-introduction*
@@ -26,6 +27,7 @@ in the editor. It provides:
 - Browse changed files with Telescope or quickfix
 - View PR overview with title, description, labels, and comments
 - Clickable GitHub references (#123) and URLs in floating windows
+- @user and #issue completion in comment windows (blink.cmp / nvim-cmp)
 - Gitsigns integration for diff base switching
 
 ==============================================================================
@@ -38,6 +40,7 @@ in the editor. It provides:
 Optional:
 - telescope.nvim for file picker with diff preview
 - gitsigns.nvim for automatic diff base switching
+- blink.cmp or nvim-cmp for @user / #issue completion
 
 ==============================================================================
 3. SETUP                                                    *reviewit-setup*
@@ -160,6 +163,35 @@ Options:
 `overview.width`    Overview window width as % of screen (default: 80).
 
 `overview.height`   Overview window height as % of screen (default: 80).
+
+==============================================================================
+7. COMPLETION                                          *reviewit-completion*
+
+Comment input windows (`ReviewComment`, `ReviewApprove`) support GitHub
+completion for `@user` mentions and `#issue/PR` references.
+
+blink.cmp: >lua
+  sources = {
+    default = { "lsp", "path", "buffer", "snippets", "reviewit" },
+    providers = {
+      reviewit = {
+        name = "reviewit",
+        module = "reviewit.completion.blink",
+        score_offset = 50,
+        async = true,
+      },
+    },
+  }
+<
+
+nvim-cmp: >lua
+  require("cmp").register_source("reviewit",
+    require("reviewit.completion.cmp").new())
+  -- Add { name = "reviewit" } to your sources
+<
+
+Data is cached for 5 minutes per session. The first trigger of `@` or `#`
+fetches data from the GitHub API asynchronously.
 
 ==============================================================================
 vim:tw=78:ts=8:ft=help:norl:

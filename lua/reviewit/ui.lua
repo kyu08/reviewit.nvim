@@ -133,6 +133,7 @@ function M.open_comment_input(callback)
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].bufhidden = "wipe"
 	vim.bo[buf].filetype = "markdown"
+	vim.b[buf].reviewit_comment = true
 
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "" })
 
@@ -180,6 +181,7 @@ function M.open_approve_input(callback)
 	vim.bo[buf].buftype = "nofile"
 	vim.bo[buf].bufhidden = "wipe"
 	vim.bo[buf].filetype = "markdown"
+	vim.b[buf].reviewit_comment = true
 
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "" })
 

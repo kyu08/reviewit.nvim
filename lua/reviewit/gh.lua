@@ -169,6 +169,25 @@ function M.create_issue_comment(pr_number, body, callback)
 	}, callback)
 end
 
+--- Get repository collaborators (for @mention completion).
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.get_collaborators(callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/collaborators",
+		"--paginate",
+	}, callback)
+end
+
+--- Get repository issues and PRs (for #reference completion).
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.get_repo_issues(callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/issues?state=all&per_page=100&sort=updated&direction=desc",
+	}, callback)
+end
+
 --- Approve the current branch's PR with an optional comment.
 --- @param body string|nil optional comment body
 --- @param callback fun(err: string|nil, stdout: string|nil)
