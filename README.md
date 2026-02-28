@@ -11,6 +11,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 - **Comment navigation** - Jump between comments with `]r` / `[r`
 - **Changed files** - Browse PR changed files with Telescope (diff preview) or quickfix
 - **PR overview** - View PR title, description, labels, and issue-level comments
+- **GitHub references** - `#123` and URLs are highlighted and openable with `gx`
 - **Approve PR** - Approve the PR with an optional comment
 - **Gitsigns integration** - Automatically switches gitsigns diff base to PR base branch
 

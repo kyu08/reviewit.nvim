@@ -25,6 +25,7 @@ in the editor. It provides:
 - Navigate between comments
 - Browse changed files with Telescope or quickfix
 - View PR overview with title, description, labels, and comments
+- Clickable GitHub references (#123) and URLs in floating windows
 - Gitsigns integration for diff base switching
 
 ==============================================================================
@@ -105,6 +106,7 @@ spec or manually. Suggested mappings:
   `<leader>ea`  Approve PR
   `]r`          Next comment
   `[r`          Previous comment
+  `gx`          Open GitHub reference or URL under cursor (in floats)
 
 ==============================================================================
 6. CONFIGURATION                                    *reviewit-configuration*

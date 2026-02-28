@@ -1,6 +1,74 @@
 local M = {}
 local config = require("reviewit.config")
 
+local ref_ns = vim.api.nvim_create_namespace("reviewit_refs")
+
+--- Get repository base URL (e.g. "https://github.com/owner/repo").
+--- @param pr_url string|nil PR URL to extract from
+--- @return string|nil
+local function get_repo_base_url(pr_url)
+	local url = pr_url or config.state.pr_url
+	if url then
+		return url:match("(https://github%.com/[^/]+/[^/]+)")
+	end
+	return nil
+end
+
+--- Highlight GitHub references (#123) and URLs in a buffer, and set up gx keymap.
+--- @param buf number buffer handle
+--- @param repo_url string|nil repository base URL
+local function setup_github_refs(buf, repo_url)
+	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+	for i, line in ipairs(lines) do
+		-- Highlight #\d+ references
+		local start = 1
+		while true do
+			local s, e = line:find("#%d+", start)
+			if not s then
+				break
+			end
+			pcall(vim.api.nvim_buf_add_highlight, buf, ref_ns, "Underlined", i - 1, s - 1, e)
+			start = e + 1
+		end
+		-- Highlight URLs
+		start = 1
+		while true do
+			local s, e = line:find("https?://[%w%.%-/%%_%?&=#~:@!%$%(%)%*%+,;]+", start)
+			if not s then
+				break
+			end
+			pcall(vim.api.nvim_buf_add_highlight, buf, ref_ns, "Underlined", i - 1, s - 1, e)
+			start = e + 1
+		end
+	end
+
+	vim.keymap.set("n", "gx", function()
+		local cursor = vim.api.nvim_win_get_cursor(0)
+		local row, col = cursor[1], cursor[2]
+		local current_line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
+
+		-- Check #\d+ reference under cursor
+		if repo_url then
+			for s, num, e in current_line:gmatch("()#(%d+)()") do
+				if col >= s - 1 and col < e - 1 then
+					vim.ui.open(repo_url .. "/issues/" .. num)
+					return
+				end
+			end
+		end
+
+		-- Check URL under cursor
+		for url in current_line:gmatch("https?://[%w%.%-/%%_%?&=#~:@!%$%(%)%*%+,;]+") do
+			local s, e = current_line:find(url, 1, true)
+			if s and col >= s - 1 and col < e then
+				vim.ui.open(url)
+				return
+			end
+		end
+	end, { buffer = buf, desc = "Open GitHub reference" })
+end
+
 --- Refresh extmarks (virtual text) for the current buffer.
 function M.refresh_extmarks()
 	local state = config.state
@@ -215,6 +283,8 @@ function M.show_comments_float(comments)
 			require("reviewit.comments").reply_to_comment(last_comment.id)
 		end
 	end, { buffer = buf })
+
+	setup_github_refs(buf, get_repo_base_url())
 end
 
 --- Show PR overview in a floating window.
@@ -350,6 +420,8 @@ function M.show_overview_float(pr_info, issue_comments, opts)
 			opts.on_refresh()
 		end
 	end, { buffer = buf, desc = "Refresh PR overview" })
+
+	setup_github_refs(buf, get_repo_base_url(pr_info.url))
 end
 
 return M
