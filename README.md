@@ -10,6 +10,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 - **Suggest changes** - Post GitHub suggestion blocks with pre-filled code for one-click apply
 - **Virtual text** - Comment and draft indicators on lines with existing comments/drafts
 - **Draft comments** - Cancelled comments are saved as drafts and restored when reopened
+- **Batch submit drafts** - Submit multiple drafts at once from the Telescope draft list
 - **Comment navigation** - Jump between comments with `]c` / `[c`
 - **Changed files** - Browse PR changed files with Telescope (diff preview) or quickfix
 - **PR overview** - View PR title, description, labels, and issue-level comments
@@ -93,7 +94,7 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 | `:ReviewOverview` | Show PR overview and issue-level comments |
 | `:ReviewApprove` | Approve PR with optional comment |
 | `:ReviewListComments` | List all PR review comments (Telescope) |
-| `:ReviewListDrafts` | List all draft comments (Telescope) |
+| `:ReviewListDrafts` | List all draft comments (Telescope, `<C-s>` to batch submit) |
 | `:ReviewBrowse` | Open PR in browser |
 
 ## Configuration

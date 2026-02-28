@@ -111,7 +111,9 @@ Using lazy.nvim: >lua
     List all draft comments in a Telescope picker. Shows each
     draft location with a body preview. Select an entry to jump
     to the file and line. Preview pane shows the full draft content.
-    Press `d` to delete a draft. Requires an active review session.
+    Press `d` to delete a draft. Press `<C-s>` to batch submit
+    selected drafts (use `<Tab>` to multi-select; submits all if
+    none selected). Requires an active review session.
 
 :ReviewBrowse                                                *:ReviewBrowse*
     Open the PR in the browser using the cached PR URL.

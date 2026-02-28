@@ -89,6 +89,84 @@ function M.parse_draft_key(key)
 	return nil
 end
 
+--- Build a submit request from a parsed draft key.
+--- @param parsed table parse_draft_key() result
+--- @param body string comment body
+--- @param pr_number number
+--- @param sha string HEAD commit SHA
+--- @return table { type: "comment"|"comment_range"|"reply", args: table }
+function M.build_submit_request(parsed, body, pr_number, sha)
+	if parsed.type == "reply" then
+		return { type = "reply", args = { pr_number, parsed.comment_id, body } }
+	end
+	if parsed.start_line == parsed.end_line then
+		return { type = "comment", args = { pr_number, sha, parsed.path, parsed.end_line, body } }
+	end
+	return { type = "comment_range", args = { pr_number, sha, parsed.path, parsed.start_line, parsed.end_line, body } }
+end
+
+--- Format a submit result into a notification message.
+--- @param succeeded number
+--- @param failed number
+--- @param total number
+--- @return string message, number log_level
+function M.format_submit_result(succeeded, failed, total)
+	if failed == 0 then
+		return string.format("Submitted %d/%d drafts", succeeded, total), vim.log.levels.INFO
+	end
+	return string.format("Submitted %d/%d drafts (%d failed)", succeeded, total, failed), vim.log.levels.WARN
+end
+
+--- Submit multiple draft comments sequentially.
+--- @param draft_entries table[] { draft_key, draft_lines, parsed }
+--- @param callback fun(succeeded: number, failed: number)
+function M.submit_drafts(draft_entries, callback)
+	local sha, sha_err = gh.get_head_sha()
+	if not sha then
+		vim.notify("reviewit.nvim: " .. (sha_err or "Failed to get HEAD SHA"), vim.log.levels.ERROR)
+		callback(0, #draft_entries)
+		return
+	end
+
+	local state = config.state
+	local idx = 0
+	local succeeded, failed = 0, 0
+
+	local function submit_next()
+		idx = idx + 1
+		if idx > #draft_entries then
+			callback(succeeded, failed)
+			return
+		end
+		local entry = draft_entries[idx]
+		local body = table.concat(entry.draft_lines, "\n")
+		local req = M.build_submit_request(entry.parsed, body, state.pr_number, sha)
+
+		local api_fn
+		if req.type == "reply" then
+			api_fn = gh.reply_to_comment
+		elseif req.type == "comment_range" then
+			api_fn = gh.create_comment_range
+		else
+			api_fn = gh.create_comment
+		end
+
+		api_fn(unpack(req.args), function(err)
+			vim.schedule(function()
+				if err then
+					failed = failed + 1
+				else
+					succeeded = succeeded + 1
+					state.drafts[entry.draft_key] = nil
+				end
+				submit_next()
+			end)
+		end)
+	end
+
+	submit_next()
+end
+
 --- Fetch all PR review comments and build the lookup map.
 function M.fetch_comments()
 	local state = config.state
@@ -637,6 +715,39 @@ function M.list_drafts()
 						actions.close(prompt_bufnr)
 						ui.refresh_extmarks()
 					end
+				end)
+				map({ "n", "i" }, "<C-s>", function()
+					local picker = action_state.get_current_picker(prompt_bufnr)
+					local multi = picker:get_multi_selection()
+					local targets = #multi > 0 and multi or entries
+					local to_submit = {}
+					for _, entry in ipairs(targets) do
+						local parsed = M.parse_draft_key(entry.draft_key)
+						if parsed then
+							table.insert(to_submit, {
+								draft_key = entry.draft_key,
+								draft_lines = entry.draft_lines,
+								parsed = parsed,
+							})
+						end
+					end
+					if #to_submit == 0 then
+						return
+					end
+					actions.close(prompt_bufnr)
+					vim.ui.select({ "Yes", "No" }, {
+						prompt = string.format("Submit %d draft(s)?", #to_submit),
+					}, function(choice)
+						if choice ~= "Yes" then
+							return
+						end
+						M.submit_drafts(to_submit, function(succeeded, failed)
+							local msg, level = M.format_submit_result(succeeded, failed, #to_submit)
+							vim.notify("reviewit.nvim: " .. msg, level)
+							ui.refresh_extmarks()
+							M.fetch_comments()
+						end)
+					end)
 				end)
 				return true
 			end,

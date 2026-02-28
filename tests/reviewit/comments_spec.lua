@@ -204,3 +204,53 @@ describe("parse_draft_key", function()
 		assert.are.equal(5, result.end_line)
 	end)
 end)
+
+describe("build_submit_request", function()
+	it("builds single-line comment request", function()
+		local parsed = { type = "comment", path = "a.lua", start_line = 10, end_line = 10 }
+		local req = comments.build_submit_request(parsed, "hello", 42, "abc123")
+		assert.are.equal("comment", req.type)
+		assert.are.same({ 42, "abc123", "a.lua", 10, "hello" }, req.args)
+	end)
+
+	it("builds multi-line comment request", function()
+		local parsed = { type = "comment", path = "b.lua", start_line = 5, end_line = 15 }
+		local req = comments.build_submit_request(parsed, "range", 42, "abc123")
+		assert.are.equal("comment_range", req.type)
+		assert.are.same({ 42, "abc123", "b.lua", 5, 15, "range" }, req.args)
+	end)
+
+	it("builds reply request", function()
+		local parsed = { type = "reply", comment_id = 99 }
+		local req = comments.build_submit_request(parsed, "reply body", 42, "abc123")
+		assert.are.equal("reply", req.type)
+		assert.are.same({ 42, 99, "reply body" }, req.args)
+	end)
+
+	it("treats equal start and end line as single-line", function()
+		local parsed = { type = "comment", path = "c.lua", start_line = 7, end_line = 7 }
+		local req = comments.build_submit_request(parsed, "body", 1, "sha")
+		assert.are.equal("comment", req.type)
+		assert.are.equal(7, req.args[4])
+	end)
+end)
+
+describe("format_submit_result", function()
+	it("returns success message when no failures", function()
+		local msg, level = comments.format_submit_result(3, 0, 3)
+		assert.are.equal("Submitted 3/3 drafts", msg)
+		assert.are.equal(vim.log.levels.INFO, level)
+	end)
+
+	it("returns warning message with failure count", function()
+		local msg, level = comments.format_submit_result(2, 1, 3)
+		assert.are.equal("Submitted 2/3 drafts (1 failed)", msg)
+		assert.are.equal(vim.log.levels.WARN, level)
+	end)
+
+	it("returns warning when all failed", function()
+		local msg, level = comments.format_submit_result(0, 3, 3)
+		assert.are.equal("Submitted 0/3 drafts (3 failed)", msg)
+		assert.are.equal(vim.log.levels.WARN, level)
+	end)
+end)
