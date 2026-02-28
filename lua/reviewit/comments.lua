@@ -64,7 +64,7 @@ function M.get_comment_lines(rel_path)
 	end
 	local lines = {}
 	for line, _ in pairs(state.comment_map[rel_path]) do
-		table.insert(lines, line)
+		table.insert(lines, tonumber(line))
 	end
 	table.sort(lines)
 	return lines
@@ -269,7 +269,7 @@ function M.list_comments()
 	local entries = {}
 	for path, lines in pairs(state.comment_map) do
 		for line_key, comments in pairs(lines) do
-			local line = tonumber(line_key) or 0
+			local line = math.floor(tonumber(line_key) or 1)
 			local first = comments[1]
 			local last = comments[#comments]
 			local author = first.user and first.user.login or "unknown"
@@ -332,7 +332,8 @@ function M.list_comments()
 					local selection = action_state.get_selected_entry()
 					if selection then
 						vim.cmd("edit " .. vim.fn.fnameescape(selection.filename))
-						vim.api.nvim_win_set_cursor(0, { selection.lnum, 0 })
+						local lnum = math.max(1, selection.lnum)
+						pcall(vim.api.nvim_win_set_cursor, 0, { lnum, 0 })
 					end
 				end)
 				return true
