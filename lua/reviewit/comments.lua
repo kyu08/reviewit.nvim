@@ -5,11 +5,17 @@ local diff = require("reviewit.diff")
 local ui = require("reviewit.ui")
 
 --- Build a nested lookup map from a flat array of comments.
+--- Excludes comments belonging to a pending review (cannot be replied to).
 --- @param comments table[] flat array of comment objects
+--- @param pending_review_id number|nil review ID to exclude
 --- @return table<string, table<number, table[]>> map[path][line] = {comments}
-function M.build_comment_map(comments)
+function M.build_comment_map(comments, pending_review_id)
 	local map = {}
 	for _, c in ipairs(comments) do
+		-- Skip comments belonging to user's pending review (not yet submitted)
+		if pending_review_id and c.pull_request_review_id == pending_review_id then
+			goto continue
+		end
 		local path = c.path
 		local line = c.line or c.original_line
 		if path and line then
@@ -21,6 +27,7 @@ function M.build_comment_map(comments)
 			end
 			table.insert(map[path][line], c)
 		end
+		::continue::
 	end
 	return map
 end
@@ -305,7 +312,7 @@ function M.fetch_comments()
 		end
 
 		state.comments = comments or {}
-		state.comment_map = M.build_comment_map(state.comments)
+		state.comment_map = M.build_comment_map(state.comments, state.pending_review_id)
 
 		ui.refresh_extmarks()
 		vim.notify(string.format("reviewit.nvim: Loaded %d comments", #state.comments), vim.log.levels.INFO)
@@ -365,6 +372,12 @@ function M.fetch_pending_review()
 		end
 
 		state.pending_review_id = pending_review.id
+
+		-- Rebuild comment_map to exclude pending review comments
+		if state.comments then
+			state.comment_map = M.build_comment_map(state.comments, state.pending_review_id)
+			ui.refresh_extmarks()
+		end
 
 		-- Fetch comments for this pending review
 		gh.get_review_comments(state.pr_number, pending_review.id, function(comments_err, comments)
