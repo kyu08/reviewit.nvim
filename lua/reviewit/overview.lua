@@ -62,7 +62,8 @@ function M.create_comment(pr_number)
 		end)
 	end, {
 		initial_lines = draft or nil,
-		on_cancel = function(lines)
+		submit_on_enter = true,
+		on_save = function(lines)
 			state.drafts[draft_key] = lines
 			vim.notify("reviewit.nvim: Draft saved", vim.log.levels.INFO)
 		end,

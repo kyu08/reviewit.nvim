@@ -3,8 +3,13 @@ local M = {}
 --- Run a gh command asynchronously.
 --- @param args string[] arguments to pass to `gh`
 --- @param callback fun(err: string|nil, stdout: string|nil)
-function M.run(args, callback)
-	vim.system(vim.list_extend({ "gh" }, args), { text = true }, function(result)
+--- @param stdin string|nil optional stdin data
+function M.run(args, callback, stdin)
+	local opts = { text = true }
+	if stdin then
+		opts.stdin = stdin
+	end
+	vim.system(vim.list_extend({ "gh" }, args), opts, function(result)
 		vim.schedule(function()
 			if result.code ~= 0 then
 				callback(result.stderr or "gh command failed", nil)
@@ -18,7 +23,8 @@ end
 --- Run a gh command and parse the JSON output.
 --- @param args string[] arguments to pass to `gh`
 --- @param callback fun(err: string|nil, data: table|nil)
-function M.run_json(args, callback)
+--- @param stdin string|nil optional stdin data
+function M.run_json(args, callback, stdin)
 	M.run(args, function(err, stdout)
 		if err then
 			return callback(err, nil)
@@ -28,7 +34,7 @@ function M.run_json(args, callback)
 			return callback("JSON parse error: " .. tostring(parsed), nil)
 		end
 		callback(nil, parsed)
-	end)
+	end, stdin)
 end
 
 --- Get PR info for the current branch.
@@ -188,18 +194,6 @@ function M.get_repo_issues(callback)
 	}, callback)
 end
 
---- Approve the current branch's PR with an optional comment.
---- @param body string|nil optional comment body
---- @param callback fun(err: string|nil, stdout: string|nil)
-function M.approve_pr(body, callback)
-	local args = { "pr", "review", "--approve" }
-	if body and body ~= "" then
-		table.insert(args, "--body")
-		table.insert(args, body)
-	end
-	M.run(args, callback)
-end
-
 --- Get the HEAD commit SHA (synchronous, local git operation).
 --- @return string|nil sha, string|nil err
 function M.get_head_sha()
@@ -208,6 +202,117 @@ function M.get_head_sha()
 		return vim.trim(result.stdout), nil
 	end
 	return nil, "Failed to get HEAD SHA"
+end
+
+--- Get all reviews on a PR.
+--- @param pr_number number
+--- @param callback fun(err: string|nil, reviews: table|nil)
+function M.get_reviews(pr_number, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/reviews",
+	}, callback)
+end
+
+--- Get comments for a specific review.
+--- @param pr_number number
+--- @param review_id number
+--- @param callback fun(err: string|nil, comments: table|nil)
+function M.get_review_comments(pr_number, review_id, callback)
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/reviews/" .. review_id .. "/comments",
+	}, callback)
+end
+
+--- Delete a review (only pending reviews can be deleted).
+--- @param pr_number number
+--- @param review_id number
+--- @param callback fun(err: string|nil)
+function M.delete_review(pr_number, review_id, callback)
+	M.run({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/reviews/" .. review_id,
+		"--method",
+		"DELETE",
+	}, function(err, _)
+		callback(err)
+	end)
+end
+
+--- Create a pending review with comments (no event = PENDING state).
+--- @param pr_number number
+--- @param commit_id string HEAD commit SHA
+--- @param review_comments table[] array of {path, line, start_line?, body, side?}
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.create_pending_review(pr_number, commit_id, review_comments, callback)
+	local payload = {
+		commit_id = commit_id,
+		comments = review_comments,
+	}
+	local json_payload = vim.json.encode(payload)
+
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/reviews",
+		"--method",
+		"POST",
+		"--input",
+		"-",
+	}, callback, json_payload)
+end
+
+--- Submit an existing pending review.
+--- @param pr_number number
+--- @param review_id number
+--- @param event string "COMMENT", "APPROVE", or "REQUEST_CHANGES"
+--- @param body string|nil review body (optional)
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.submit_review(pr_number, review_id, event, body, callback)
+	local payload = {
+		event = event,
+	}
+	if body and body ~= "" then
+		payload.body = body
+	end
+	local json_payload = vim.json.encode(payload)
+
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/reviews/" .. review_id .. "/events",
+		"--method",
+		"POST",
+		"--input",
+		"-",
+	}, callback, json_payload)
+end
+
+--- Create a PR review with comments.
+--- @param pr_number number
+--- @param commit_id string HEAD commit SHA
+--- @param body string|nil review body (optional)
+--- @param event string "COMMENT", "APPROVE", or "REQUEST_CHANGES"
+--- @param review_comments table[] array of {path, line, start_line?, body}
+--- @param callback fun(err: string|nil, data: table|nil)
+function M.create_review(pr_number, commit_id, body, event, review_comments, callback)
+	local payload = {
+		commit_id = commit_id,
+		event = event,
+		comments = review_comments,
+	}
+	if body and body ~= "" then
+		payload.body = body
+	end
+	local json_payload = vim.json.encode(payload)
+
+	M.run_json({
+		"api",
+		"repos/{owner}/{repo}/pulls/" .. pr_number .. "/reviews",
+		"--method",
+		"POST",
+		"--input",
+		"-",
+	}, callback, json_payload)
 end
 
 return M

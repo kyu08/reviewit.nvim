@@ -77,7 +77,9 @@ Using lazy.nvim: >lua
 :ReviewComment                                              *:ReviewComment*
     Create a review comment on the current line (normal mode) or
     selected lines (visual mode). Opens a floating window for
-    composing the comment. Press `<CR>` to submit, `q` to cancel.
+    composing the comment. Press `<CR>` to save as GitHub pending review
+    (visible on PR page with "Pending" status), `q` to cancel.
+    Pending comments can be submitted as a review using |:ReviewSubmit|.
 
 :ReviewViewComment                                      *:ReviewViewComment*
     View existing review comments on the current line in a floating
@@ -98,8 +100,10 @@ Using lazy.nvim: >lua
     Suggest a code change on the current line (normal mode) or
     selected lines (visual mode). Opens a floating window pre-filled
     with a GitHub suggestion block containing the selected code.
-    Edit the code inside the block, then press `<CR>` to submit.
-    The suggestion appears on the PR with an "Apply suggestion" button.
+    Edit the code inside the block, then press `<CR>` to save as
+    GitHub pending review. Pending comments can be submitted as a
+    review using |:ReviewSubmit|. The suggestion appears on the PR
+    with an "Apply suggestion" button.
 
 :ReviewListComments                                    *:ReviewListComments*
     List all PR review comments in a Telescope picker. Shows each
@@ -108,21 +112,31 @@ Using lazy.nvim: >lua
     thread formatted as markdown. Requires an active review session.
 
 :ReviewListDrafts                                        *:ReviewListDrafts*
-    List all draft comments in a Telescope picker. Shows each
+    List all local draft comments in a Telescope picker. Shows each
     draft location with a body preview. Select an entry to jump
     to the file and line. Preview pane shows the full draft content.
-    Press `d` to delete a draft. Press `<C-s>` to batch submit
-    selected drafts (use `<Tab>` to multi-select; submits all if
-    none selected). Requires an active review session.
+    Press `d` to delete a draft. Note: Most comments are saved as
+    GitHub pending review (see |:ReviewComment|), not local drafts.
+    Requires an active review session.
 
 :ReviewBrowse                                                *:ReviewBrowse*
     Open the PR in the browser using the cached PR URL.
     Requires an active review session.
 
-:ReviewApprove                                              *:ReviewApprove*
-    Approve the current branch's PR. Opens a floating window for an
-    optional comment. Press `<CR>` to approve (with or without a
-    comment), `q` to cancel.
+:ReviewSubmit                                              *:ReviewSubmit*
+    Submit all pending comments as a single GitHub review. This allows
+    you to batch comments together instead of posting them individually.
+
+    Workflow:
+    1. Create comments using |:ReviewComment| (saved as GitHub pending)
+    2. Comments appear on the PR page with "Pending" status
+    3. Run |:ReviewSubmit| to submit all pending comments as one review
+    4. Select review type: Comment, Approve, or Request Changes
+    5. Optionally add a review body message
+    6. All pending comments are submitted together
+
+    Note: Replies to existing comments and PR-level comments cannot
+    be included in a review (GitHub API limitation).
 
 ==============================================================================
 5. KEYMAPS                                                *reviewit-keymaps*
@@ -142,7 +156,6 @@ Suggested mappings:
   `<leader>ef`  List changed files
   `<leader>eo`  PR overview
   `<leader>ed`  Toggle diff preview
-  `<leader>ea`  Approve PR
   `<leader>eb`  Open PR in browser
   `<leader>el`  List all review comments
   `<leader>ep`  List all drafts
@@ -168,6 +181,8 @@ Default configuration: >lua
     signs = {
       comment = "#",
       comment_hl = "DiagnosticInfo",
+      pending = "⏳ pending",
+      pending_hl = "DiagnosticHint",
       draft = "✎ draft comment",
       draft_hl = "DiagnosticWarn",
     },
@@ -202,8 +217,15 @@ Options:
 
 `signs.comment_hl`  Highlight group for comment indicators.
 
-`signs.draft`       Text shown in virtual text for draft indicators
-                  (default: "✎ draft comment").
+`signs.pending`     Text shown in virtual text for pending review comments
+                  (default: "⏳ pending").
+
+`signs.pending_hl`  Highlight group for pending indicators
+                  (default: "DiagnosticHint").
+
+`signs.draft`       Text shown in virtual text for local draft indicators
+                  (default: "✎ draft comment"). Local drafts are fallback
+                  storage when GitHub API fails.
 
 `signs.draft_hl`    Highlight group for draft indicators
                   (default: "DiagnosticWarn").
@@ -229,7 +251,7 @@ Options:
 ==============================================================================
 7. COMPLETION                                          *reviewit-completion*
 
-Comment input windows (`ReviewComment`, `ReviewSuggest`, `ReviewApprove`) support GitHub
+Comment input windows (`ReviewComment`, `ReviewSuggest`) support GitHub
 completion for `@user` mentions and `#issue/PR` references.
 
 blink.cmp: >lua
