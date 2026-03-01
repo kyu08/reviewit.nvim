@@ -44,6 +44,7 @@ vim.api.nvim_create_user_command("ReviewApprove", function()
 	end, {
 		title = " Approve PR ",
 		footer = " <CR> approve | q cancel ",
+		submit_on_enter = true,
 	})
 end, { desc = "Approve PR" })
 
@@ -71,3 +72,41 @@ vim.api.nvim_create_user_command("ReviewBrowse", function()
 	end
 	vim.ui.open(state.pr_url)
 end, { desc = "Open PR in browser" })
+
+vim.api.nvim_create_user_command("ReviewSubmit", function()
+	local state = require("reviewit.config").state
+	if not state.active then
+		vim.notify("reviewit.nvim: Not active", vim.log.levels.WARN)
+		return
+	end
+
+	local ui = require("reviewit.ui")
+	local comments = require("reviewit.comments")
+
+	-- Step 1: Select review event type
+	ui.select_review_event(function(event)
+		if not event then
+			return
+		end
+
+		-- Step 2: Input review body (optional)
+		ui.open_comment_input(function(body)
+			-- Step 3: Submit review
+			comments.submit_as_review(event, body, function(err, excluded_count)
+				if err then
+					vim.notify("reviewit.nvim: " .. err, vim.log.levels.ERROR)
+					return
+				end
+				local msg = "Review submitted"
+				if excluded_count > 0 then
+					msg = msg .. string.format(" (%d drafts excluded: replies/PR comments)", excluded_count)
+				end
+				vim.notify("reviewit.nvim: " .. msg, vim.log.levels.INFO)
+			end)
+		end, {
+			title = " Review Body (optional) ",
+			footer = " <CR> submit | q skip body ",
+			submit_on_enter = true,
+		})
+	end)
+end, { desc = "Submit drafts as review" })
