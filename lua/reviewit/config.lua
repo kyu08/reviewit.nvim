@@ -26,6 +26,11 @@ M.defaults = {
 		width = 80,
 		height = 80,
 	},
+	-- Flash highlight when navigating to a comment line
+	flash = {
+		duration = 200, -- ms
+		hl_group = "Visual",
+	},
 	-- Auto-open comment viewer when navigating to a comment line
 	auto_view_comment = true,
 	-- strftime format for timestamps (applied in system timezone)

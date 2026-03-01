@@ -197,6 +197,11 @@ Default configuration: >lua
       width = 80,
       height = 80,
     },
+    -- Flash highlight when navigating to a comment line (]c/[c)
+    flash = {
+      duration = 200, -- ms
+      hl_group = "Visual",
+    },
     -- strftime format for timestamps (system timezone)
     date_format = "%Y/%m/%d %H:%M",
   })
@@ -239,6 +244,11 @@ Options:
 `overview.width`    Overview window width as % of screen (default: 80).
 
 `overview.height`   Overview window height as % of screen (default: 80).
+
+`flash.duration`    Duration in milliseconds for the flash highlight
+                  when navigating to a comment line (default: 200).
+
+`flash.hl_group`    Highlight group for the flash effect (default: "Visual").
 
 `auto_view_comment` When true, automatically opens the comment viewer
                   float after navigating to a comment line via ]c, [c,

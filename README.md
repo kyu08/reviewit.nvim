@@ -124,6 +124,11 @@ require("reviewit").setup({
     width = 80,
     height = 80,
   },
+  -- Flash highlight when navigating to a comment line (]c/[c)
+  flash = {
+    duration = 200, -- ms
+    hl_group = "Visual",
+  },
   -- Auto-open comment viewer when navigating to a comment line (]c/[c/ReviewListComments)
   auto_view_comment = true,
   -- strftime format for timestamps (system timezone)

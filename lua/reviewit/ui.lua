@@ -2,6 +2,7 @@ local M = {}
 local config = require("reviewit.config")
 
 local ref_ns = vim.api.nvim_create_namespace("reviewit_refs")
+local flash_ns = vim.api.nvim_create_namespace("reviewit_flash")
 
 --- Get repository base URL (e.g. "https://github.com/owner/repo").
 --- @param pr_url string|nil PR URL to extract from
@@ -67,6 +68,24 @@ local function setup_github_refs(buf, repo_url)
 			end
 		end
 	end, { buffer = buf, desc = "Open GitHub reference" })
+end
+
+--- Flash highlight a line temporarily.
+--- @param line number 1-indexed line number
+function M.flash_line(line)
+	local buf = vim.api.nvim_get_current_buf()
+	local flash_opts = config.opts.flash or {}
+	local duration = flash_opts.duration or 200
+	local hl_group = flash_opts.hl_group or "Visual"
+
+	local extmark_id = vim.api.nvim_buf_set_extmark(buf, flash_ns, line - 1, 0, {
+		line_hl_group = hl_group,
+		priority = 100,
+	})
+
+	vim.defer_fn(function()
+		pcall(vim.api.nvim_buf_del_extmark, buf, flash_ns, extmark_id)
+	end, duration)
 end
 
 --- Calculate centered float window dimensions from percentage-based sizes.
