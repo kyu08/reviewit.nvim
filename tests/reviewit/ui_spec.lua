@@ -99,6 +99,181 @@ describe("format_comments_for_display", function()
 	end)
 end)
 
+describe("format_check_status", function()
+	it("returns check mark for SUCCESS", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "SUCCESS" })
+		assert.are.equal("✓", symbol)
+		assert.are.equal("DiagnosticOk", hl)
+	end)
+
+	it("returns x for FAILURE", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "FAILURE" })
+		assert.are.equal("✗", symbol)
+		assert.are.equal("DiagnosticError", hl)
+	end)
+
+	it("returns x for TIMED_OUT", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "TIMED_OUT" })
+		assert.are.equal("✗", symbol)
+		assert.are.equal("DiagnosticError", hl)
+	end)
+
+	it("returns x for STARTUP_FAILURE", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "STARTUP_FAILURE" })
+		assert.are.equal("✗", symbol)
+		assert.are.equal("DiagnosticError", hl)
+	end)
+
+	it("returns dash for NEUTRAL", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "NEUTRAL" })
+		assert.are.equal("-", symbol)
+		assert.are.equal("Comment", hl)
+	end)
+
+	it("returns dash for SKIPPED", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "SKIPPED" })
+		assert.are.equal("-", symbol)
+		assert.are.equal("Comment", hl)
+	end)
+
+	it("returns bang for CANCELLED", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "CANCELLED" })
+		assert.are.equal("!", symbol)
+		assert.are.equal("DiagnosticWarn", hl)
+	end)
+
+	it("returns bang for ACTION_REQUIRED", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "ACTION_REQUIRED" })
+		assert.are.equal("!", symbol)
+		assert.are.equal("DiagnosticWarn", hl)
+	end)
+
+	it("returns circle for IN_PROGRESS", function()
+		local symbol, hl = ui.format_check_status({ status = "IN_PROGRESS" })
+		assert.are.equal("●", symbol)
+		assert.are.equal("DiagnosticWarn", hl)
+	end)
+
+	it("returns circle for QUEUED", function()
+		local symbol, hl = ui.format_check_status({ status = "QUEUED" })
+		assert.are.equal("●", symbol)
+		assert.are.equal("DiagnosticWarn", hl)
+	end)
+
+	it("returns circle for PENDING", function()
+		local symbol, hl = ui.format_check_status({ status = "PENDING" })
+		assert.are.equal("●", symbol)
+		assert.are.equal("DiagnosticWarn", hl)
+	end)
+
+	it("returns question mark for unknown conclusion", function()
+		local symbol, hl = ui.format_check_status({ status = "COMPLETED", conclusion = "SOMETHING_NEW" })
+		assert.are.equal("?", symbol)
+		assert.are.equal("Comment", hl)
+	end)
+end)
+
+describe("deduplicate_checks", function()
+	it("keeps latest entry for duplicate names", function()
+		local checks = {
+			{ name = "lint", status = "COMPLETED", conclusion = "FAILURE" },
+			{ name = "test", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "lint", status = "COMPLETED", conclusion = "SUCCESS" },
+		}
+		local result = ui.deduplicate_checks(checks)
+		assert.are.equal(2, #result)
+		local lint_found = false
+		for _, check in ipairs(result) do
+			if check.name == "lint" then
+				assert.are.equal("SUCCESS", check.conclusion)
+				lint_found = true
+			end
+		end
+		assert.is_true(lint_found)
+	end)
+
+	it("preserves order of first appearance", function()
+		local checks = {
+			{ name = "build", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "lint", status = "COMPLETED", conclusion = "FAILURE" },
+			{ name = "lint", status = "COMPLETED", conclusion = "SUCCESS" },
+		}
+		local result = ui.deduplicate_checks(checks)
+		assert.are.equal("build", result[1].name)
+		assert.are.equal("lint", result[2].name)
+	end)
+
+	it("returns empty table for empty input", function()
+		assert.are.equal(0, #ui.deduplicate_checks({}))
+	end)
+
+	it("handles checks with no duplicates", function()
+		local checks = {
+			{ name = "lint", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "test", status = "COMPLETED", conclusion = "SUCCESS" },
+		}
+		local result = ui.deduplicate_checks(checks)
+		assert.are.equal(2, #result)
+	end)
+
+	it("uses context field for StatusContext type", function()
+		local checks = {
+			{ context = "ci/check", status = "COMPLETED", conclusion = "FAILURE" },
+			{ context = "ci/check", status = "COMPLETED", conclusion = "SUCCESS" },
+		}
+		local result = ui.deduplicate_checks(checks)
+		assert.are.equal(1, #result)
+		assert.are.equal("SUCCESS", result[1].conclusion)
+	end)
+end)
+
+describe("build_checks_summary", function()
+	it("returns correct count for all success", function()
+		local checks = {
+			{ status = "COMPLETED", conclusion = "SUCCESS", name = "lint" },
+			{ status = "COMPLETED", conclusion = "SUCCESS", name = "test" },
+		}
+		assert.are.equal("2/2 passed", ui.build_checks_summary(checks))
+	end)
+
+	it("returns correct count for mixed results", function()
+		local checks = {
+			{ status = "COMPLETED", conclusion = "SUCCESS", name = "lint" },
+			{ status = "COMPLETED", conclusion = "FAILURE", name = "test" },
+			{ status = "COMPLETED", conclusion = "SUCCESS", name = "build" },
+		}
+		assert.are.equal("2/3 passed", ui.build_checks_summary(checks))
+	end)
+
+	it("returns correct count for all failures", function()
+		local checks = {
+			{ status = "COMPLETED", conclusion = "FAILURE", name = "lint" },
+		}
+		assert.are.equal("0/1 passed", ui.build_checks_summary(checks))
+	end)
+
+	it("counts NEUTRAL and SKIPPED as passed", function()
+		local checks = {
+			{ status = "COMPLETED", conclusion = "SUCCESS", name = "lint" },
+			{ status = "COMPLETED", conclusion = "SKIPPED", name = "optional" },
+			{ status = "COMPLETED", conclusion = "NEUTRAL", name = "info" },
+		}
+		assert.are.equal("3/3 passed", ui.build_checks_summary(checks))
+	end)
+
+	it("handles in-progress checks", function()
+		local checks = {
+			{ status = "COMPLETED", conclusion = "SUCCESS", name = "lint" },
+			{ status = "IN_PROGRESS", name = "test" },
+		}
+		assert.are.equal("1/2 passed", ui.build_checks_summary(checks))
+	end)
+
+	it("returns empty string for empty list", function()
+		assert.are.equal("", ui.build_checks_summary({}))
+	end)
+end)
+
 describe("build_overview_lines", function()
 	local identity = function(s)
 		return s or ""
@@ -220,7 +395,112 @@ describe("build_overview_lines", function()
 	it("produces correct highlight ranges", function()
 		local pr = { number = 1, title = "T", state = "OPEN", url = "" }
 		local result = ui.build_overview_lines(pr, {}, identity)
-		-- At minimum: title, DESCRIPTION header, COMMENTS header, footer
-		assert.is_true(#result.hl_ranges >= 4)
+		-- At minimum: title, DESCRIPTION header, CI STATUS header, COMMENTS header, footer
+		assert.is_true(#result.hl_ranges >= 5)
+	end)
+
+	it("shows CI STATUS section with checks", function()
+		local pr = {
+			number = 1,
+			title = "T",
+			state = "OPEN",
+			url = "",
+			statusCheckRollup = {
+				{ name = "lint", status = "COMPLETED", conclusion = "SUCCESS" },
+				{ name = "test", status = "COMPLETED", conclusion = "FAILURE" },
+			},
+		}
+		local result = ui.build_overview_lines(pr, {}, identity)
+		local found_header = false
+		local found_lint = false
+		local found_test = false
+		for _, line in ipairs(result.lines) do
+			if line:find("CI STATUS") and line:find("1/2 passed") then
+				found_header = true
+			end
+			if line:find("✓") and line:find("lint") then
+				found_lint = true
+			end
+			if line:find("✗") and line:find("test") then
+				found_test = true
+			end
+		end
+		assert.is_true(found_header)
+		assert.is_true(found_lint)
+		assert.is_true(found_test)
+	end)
+
+	it("shows no checks placeholder when statusCheckRollup is empty", function()
+		local pr = { number = 1, title = "T", state = "OPEN", url = "", statusCheckRollup = {} }
+		local result = ui.build_overview_lines(pr, {}, identity)
+		local found = false
+		for _, line in ipairs(result.lines) do
+			if line:find("%(no checks%)") then
+				found = true
+				break
+			end
+		end
+		assert.is_true(found)
+	end)
+
+	it("shows no checks placeholder when statusCheckRollup is nil", function()
+		local pr = { number = 1, title = "T", state = "OPEN", url = "" }
+		local result = ui.build_overview_lines(pr, {}, identity)
+		local found = false
+		for _, line in ipairs(result.lines) do
+			if line:find("%(no checks%)") then
+				found = true
+				break
+			end
+		end
+		assert.is_true(found)
+	end)
+
+	it("highlights check lines with correct groups", function()
+		local pr = {
+			number = 1,
+			title = "T",
+			state = "OPEN",
+			url = "",
+			statusCheckRollup = {
+				{ name = "lint", status = "COMPLETED", conclusion = "SUCCESS" },
+				{ name = "test", status = "IN_PROGRESS" },
+			},
+		}
+		local result = ui.build_overview_lines(pr, {}, identity)
+		local ok_found = false
+		local warn_found = false
+		for _, hl in ipairs(result.hl_ranges) do
+			if hl.hl == "DiagnosticOk" then
+				ok_found = true
+			end
+			if hl.hl == "DiagnosticWarn" then
+				warn_found = true
+			end
+		end
+		assert.is_true(ok_found)
+		assert.is_true(warn_found)
+	end)
+
+	it("deduplicates checks keeping latest", function()
+		local pr = {
+			number = 1,
+			title = "T",
+			state = "OPEN",
+			url = "",
+			statusCheckRollup = {
+				{ name = "lint", status = "COMPLETED", conclusion = "FAILURE" },
+				{ name = "test", status = "COMPLETED", conclusion = "SUCCESS" },
+				{ name = "lint", status = "COMPLETED", conclusion = "SUCCESS" },
+			},
+		}
+		local result = ui.build_overview_lines(pr, {}, identity)
+		local found_header = false
+		for _, line in ipairs(result.lines) do
+			if line:find("CI STATUS") and line:find("2/2 passed") then
+				found_header = true
+			end
+		end
+		assert.is_true(found_header)
 	end)
 end)

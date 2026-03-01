@@ -108,6 +108,69 @@ function M.format_comments_for_display(comments, format_date_fn)
 	return { lines = lines, hl_ranges = hl_ranges }
 end
 
+--- Map check conclusion/status to display symbol and highlight group.
+--- @param check table check run object from statusCheckRollup
+--- @return string symbol, string hl_group
+function M.format_check_status(check)
+	local status = check.status or ""
+	local conclusion = check.conclusion or ""
+
+	-- Not yet completed
+	if status == "IN_PROGRESS" or status == "QUEUED" or status == "PENDING" then
+		return "●", "DiagnosticWarn"
+	end
+
+	-- Completed with conclusion
+	if conclusion == "SUCCESS" then
+		return "✓", "DiagnosticOk"
+	elseif conclusion == "FAILURE" or conclusion == "TIMED_OUT" or conclusion == "STARTUP_FAILURE" then
+		return "✗", "DiagnosticError"
+	elseif conclusion == "NEUTRAL" or conclusion == "SKIPPED" then
+		return "-", "Comment"
+	elseif conclusion == "CANCELLED" or conclusion == "ACTION_REQUIRED" then
+		return "!", "DiagnosticWarn"
+	end
+
+	return "?", "Comment"
+end
+
+--- Deduplicate checks by name, keeping the latest entry for each.
+--- @param checks table[] statusCheckRollup array
+--- @return table[] deduplicated checks preserving first-appearance order
+function M.deduplicate_checks(checks)
+	local seen = {}
+	local order = {}
+	for _, check in ipairs(checks) do
+		local key = check.name or check.context or "unknown"
+		if not seen[key] then
+			table.insert(order, key)
+		end
+		seen[key] = check
+	end
+	local result = {}
+	for _, key in ipairs(order) do
+		table.insert(result, seen[key])
+	end
+	return result
+end
+
+--- Build summary string for checks (e.g. "2/3 passed").
+--- @param checks table[] statusCheckRollup array
+--- @return string
+function M.build_checks_summary(checks)
+	if #checks == 0 then
+		return ""
+	end
+	local passed = 0
+	for _, check in ipairs(checks) do
+		local conclusion = check.conclusion or ""
+		if conclusion == "SUCCESS" or conclusion == "NEUTRAL" or conclusion == "SKIPPED" then
+			passed = passed + 1
+		end
+	end
+	return string.format("%d/%d passed", passed, #checks)
+end
+
 --- Build display lines for PR overview window.
 --- @param pr_info table PR data from gh pr view
 --- @param issue_comments table[] issue-level comments
@@ -152,6 +215,33 @@ function M.build_overview_lines(pr_info, issue_comments, format_date_fn)
 	else
 		for _, body_line in ipairs(vim.split(body, "\n")) do
 			table.insert(lines, body_line)
+		end
+	end
+
+	-- CI Status
+	local raw_checks = pr_info.statusCheckRollup or {}
+	local checks = M.deduplicate_checks(raw_checks)
+	table.insert(lines, "")
+	table.insert(lines, string.rep("-", 50))
+	local ci_header_line = #lines
+	local summary = M.build_checks_summary(checks)
+	if summary ~= "" then
+		table.insert(lines, string.format("CI STATUS (%s)", summary))
+	else
+		table.insert(lines, "CI STATUS")
+	end
+	table.insert(hl_ranges, { line = ci_header_line, hl = "Title" })
+	table.insert(lines, string.rep("-", 50))
+
+	if #checks == 0 then
+		table.insert(lines, "(no checks)")
+	else
+		for _, check in ipairs(checks) do
+			local name = check.name or check.context or "unknown"
+			local symbol, hl = M.format_check_status(check)
+			local conclusion = check.conclusion or check.status or ""
+			table.insert(lines, string.format("%s %s  %s", symbol, name, conclusion:lower()))
+			table.insert(hl_ranges, { line = #lines - 1, hl = hl })
 		end
 	end
 
