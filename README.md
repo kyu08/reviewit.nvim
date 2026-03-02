@@ -1,5 +1,7 @@
 # fude.nvim
 
+![fude.nvim](fude.nvim.jpg)
+
 PR code review inside Neovim. Review GitHub pull requests without leaving your editor.
 
 ## Features
