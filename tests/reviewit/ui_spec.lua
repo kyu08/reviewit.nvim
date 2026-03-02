@@ -275,6 +275,110 @@ describe("build_checks_summary", function()
 	end)
 end)
 
+describe("sort_checks", function()
+	it("sorts failures before successes", function()
+		local checks = {
+			{ name = "lint", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "test", status = "COMPLETED", conclusion = "FAILURE" },
+		}
+		local result = ui.sort_checks(checks)
+		assert.are.equal("test", result[1].name)
+		assert.are.equal("lint", result[2].name)
+	end)
+
+	it("sorts by priority: failure > cancelled > skipped > in_progress > success", function()
+		local checks = {
+			{ name = "e-success", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "d-pending", status = "IN_PROGRESS" },
+			{ name = "c-skipped", status = "COMPLETED", conclusion = "SKIPPED" },
+			{ name = "b-cancelled", status = "COMPLETED", conclusion = "CANCELLED" },
+			{ name = "a-failure", status = "COMPLETED", conclusion = "FAILURE" },
+		}
+		local result = ui.sort_checks(checks)
+		assert.are.equal("a-failure", result[1].name)
+		assert.are.equal("b-cancelled", result[2].name)
+		assert.are.equal("c-skipped", result[3].name)
+		assert.are.equal("d-pending", result[4].name)
+		assert.are.equal("e-success", result[5].name)
+	end)
+
+	it("sorts alphabetically within the same priority", function()
+		local checks = {
+			{ name = "zebra", status = "COMPLETED", conclusion = "FAILURE" },
+			{ name = "alpha", status = "COMPLETED", conclusion = "FAILURE" },
+			{ name = "middle", status = "COMPLETED", conclusion = "FAILURE" },
+		}
+		local result = ui.sort_checks(checks)
+		assert.are.equal("alpha", result[1].name)
+		assert.are.equal("middle", result[2].name)
+		assert.are.equal("zebra", result[3].name)
+	end)
+
+	it("does not modify the original table", function()
+		local checks = {
+			{ name = "lint", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "test", status = "COMPLETED", conclusion = "FAILURE" },
+		}
+		ui.sort_checks(checks)
+		assert.are.equal("lint", checks[1].name)
+		assert.are.equal("test", checks[2].name)
+	end)
+
+	it("returns empty table for empty input", function()
+		assert.are.equal(0, #ui.sort_checks({}))
+	end)
+
+	it("groups TIMED_OUT and STARTUP_FAILURE with failures", function()
+		local checks = {
+			{ name = "success", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "startup", status = "COMPLETED", conclusion = "STARTUP_FAILURE" },
+			{ name = "timeout", status = "COMPLETED", conclusion = "TIMED_OUT" },
+		}
+		local result = ui.sort_checks(checks)
+		assert.are.equal("startup", result[1].name)
+		assert.are.equal("timeout", result[2].name)
+		assert.are.equal("success", result[3].name)
+	end)
+
+	it("groups NEUTRAL with SKIPPED", function()
+		local checks = {
+			{ name = "success", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "neutral", status = "COMPLETED", conclusion = "NEUTRAL" },
+			{ name = "skipped", status = "COMPLETED", conclusion = "SKIPPED" },
+		}
+		local result = ui.sort_checks(checks)
+		assert.are.equal("neutral", result[1].name)
+		assert.are.equal("skipped", result[2].name)
+		assert.are.equal("success", result[3].name)
+	end)
+
+	it("groups QUEUED and PENDING with IN_PROGRESS", function()
+		local checks = {
+			{ name = "success", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "queued", status = "QUEUED" },
+			{ name = "pending", status = "PENDING" },
+			{ name = "progress", status = "IN_PROGRESS" },
+		}
+		local result = ui.sort_checks(checks)
+		assert.are.equal("pending", result[1].name)
+		assert.are.equal("progress", result[2].name)
+		assert.are.equal("queued", result[3].name)
+		assert.are.equal("success", result[4].name)
+	end)
+
+	it("places unknown conclusions last", function()
+		local checks = {
+			{ name = "unknown", status = "COMPLETED", conclusion = "SOMETHING_NEW" },
+			{ name = "success", status = "COMPLETED", conclusion = "SUCCESS" },
+			{ name = "failure", status = "COMPLETED", conclusion = "FAILURE" },
+		}
+		local result = ui.sort_checks(checks)
+		assert.are.equal("failure", result[1].name)
+		assert.are.equal("success", result[2].name)
+		assert.are.equal("unknown", result[3].name)
+	end)
+end)
+
 describe("build_overview_lines", function()
 	local identity = function(s)
 		return s or ""
