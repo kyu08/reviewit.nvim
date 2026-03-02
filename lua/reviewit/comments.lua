@@ -5,11 +5,17 @@ local diff = require("reviewit.diff")
 local ui = require("reviewit.ui")
 
 --- Build a nested lookup map from a flat array of comments.
+--- Excludes comments belonging to a pending review (cannot be replied to).
 --- @param comments table[] flat array of comment objects
+--- @param pending_review_id number|nil review ID to exclude
 --- @return table<string, table<number, table[]>> map[path][line] = {comments}
-function M.build_comment_map(comments)
+function M.build_comment_map(comments, pending_review_id)
 	local map = {}
 	for _, c in ipairs(comments) do
+		-- Skip comments belonging to user's pending review (not yet submitted)
+		if pending_review_id and c.pull_request_review_id == pending_review_id then
+			goto continue
+		end
 		local path = c.path
 		local line = c.line or c.original_line
 		if path and line then
@@ -21,6 +27,7 @@ function M.build_comment_map(comments)
 			end
 			table.insert(map[path][line], c)
 		end
+		::continue::
 	end
 	return map
 end
@@ -273,7 +280,8 @@ function M.submit_drafts(draft_entries, callback)
 			api_fn = gh.create_comment
 		end
 
-		api_fn(unpack(req.args), function(err)
+		local args = vim.list_extend({}, req.args)
+		args[#args + 1] = function(err)
 			vim.schedule(function()
 				if err then
 					failed = failed + 1
@@ -283,7 +291,8 @@ function M.submit_drafts(draft_entries, callback)
 				end
 				submit_next()
 			end)
-		end)
+		end
+		api_fn(unpack(args))
 	end
 
 	submit_next()
@@ -303,7 +312,7 @@ function M.fetch_comments()
 		end
 
 		state.comments = comments or {}
-		state.comment_map = M.build_comment_map(state.comments)
+		state.comment_map = M.build_comment_map(state.comments, state.pending_review_id)
 
 		ui.refresh_extmarks()
 		vim.notify(string.format("reviewit.nvim: Loaded %d comments", #state.comments), vim.log.levels.INFO)
@@ -363,6 +372,12 @@ function M.fetch_pending_review()
 		end
 
 		state.pending_review_id = pending_review.id
+
+		-- Rebuild comment_map to exclude pending review comments
+		if state.comments then
+			state.comment_map = M.build_comment_map(state.comments, state.pending_review_id)
+			ui.refresh_extmarks()
+		end
 
 		-- Fetch comments for this pending review
 		gh.get_review_comments(state.pr_number, pending_review.id, function(comments_err, comments)
@@ -586,11 +601,30 @@ function M.view_comments()
 	ui.show_comments_float(comments)
 end
 
+--- Get the reply target ID for a comment.
+--- GitHub API doesn't allow replying to replies, so we need to find the top-level comment.
+--- @param comment_id number the comment ID
+--- @param comment_map table the comment map
+--- @return number the ID to use for reply (either original or in_reply_to_id)
+function M.get_reply_target_id(comment_id, comment_map)
+	local found = M.find_comment_by_id(comment_id, comment_map)
+	if found and found.comment.in_reply_to_id then
+		return found.comment.in_reply_to_id
+	end
+	return comment_id
+end
+
 --- Reply to the most recent comment on the current line.
 --- @param comment_id number|nil specific comment id, or nil to use latest on current line
 function M.reply_to_comment(comment_id)
 	local state = config.state
 	if not state.active or not state.pr_number then
+		return
+	end
+
+	-- GitHub API doesn't allow creating replies while a pending review exists
+	if state.pending_review_id then
+		vim.notify("reviewit.nvim: Cannot reply while pending review exists. Run :ReviewSubmit first.", vim.log.levels.WARN)
 		return
 	end
 
@@ -610,7 +644,10 @@ function M.reply_to_comment(comment_id)
 		comment_id = comments[#comments].id
 	end
 
-	local draft_key = "reply:" .. comment_id
+	-- GitHub API doesn't allow replying to replies, find top-level comment
+	local reply_target_id = M.get_reply_target_id(comment_id, state.comment_map or {})
+
+	local draft_key = "reply:" .. reply_target_id
 	local draft = state.drafts[draft_key]
 
 	ui.open_comment_input(function(body)
@@ -620,7 +657,7 @@ function M.reply_to_comment(comment_id)
 
 		state.drafts[draft_key] = nil
 
-		gh.reply_to_comment(state.pr_number, comment_id, body, function(err, _)
+		gh.reply_to_comment(state.pr_number, reply_target_id, body, function(err, _)
 			if err then
 				vim.notify("reviewit.nvim: Reply failed: " .. err, vim.log.levels.ERROR)
 				return

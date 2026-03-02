@@ -89,6 +89,28 @@ describe("build_comment_map", function()
 		local map = comments.build_comment_map({})
 		assert.are.same({}, map)
 	end)
+
+	it("excludes comments belonging to pending review", function()
+		local input = {
+			{ path = "a.lua", line = 10, body = "submitted", pull_request_review_id = 100 },
+			{ path = "a.lua", line = 20, body = "pending", pull_request_review_id = 200 },
+			{ path = "b.lua", line = 5, body = "also submitted", pull_request_review_id = 100 },
+		}
+		local map = comments.build_comment_map(input, 200)
+		assert.are.equal(1, #map["a.lua"][10])
+		assert.is_nil(map["a.lua"][20])
+		assert.are.equal(1, #map["b.lua"][5])
+	end)
+
+	it("includes all comments when pending_review_id is nil", function()
+		local input = {
+			{ path = "a.lua", line = 10, body = "first", pull_request_review_id = 100 },
+			{ path = "a.lua", line = 20, body = "second", pull_request_review_id = 200 },
+		}
+		local map = comments.build_comment_map(input, nil)
+		assert.are.equal(1, #map["a.lua"][10])
+		assert.are.equal(1, #map["a.lua"][20])
+	end)
 end)
 
 describe("find_next_comment_line", function()
@@ -159,6 +181,26 @@ describe("find_comment_by_id", function()
 
 	it("returns nil for empty map", function()
 		assert.is_nil(comments.find_comment_by_id(1, {}))
+	end)
+end)
+
+describe("get_reply_target_id", function()
+	it("returns original id for top-level comment", function()
+		local map = {
+			["a.lua"] = { [10] = { { id = 100, body = "top-level" } } },
+		}
+		assert.are.equal(100, comments.get_reply_target_id(100, map))
+	end)
+
+	it("returns in_reply_to_id for reply comment", function()
+		local map = {
+			["a.lua"] = { [10] = { { id = 200, body = "reply", in_reply_to_id = 100 } } },
+		}
+		assert.are.equal(100, comments.get_reply_target_id(200, map))
+	end)
+
+	it("returns original id when comment not found in map", function()
+		assert.are.equal(999, comments.get_reply_target_id(999, {}))
 	end)
 end)
 
