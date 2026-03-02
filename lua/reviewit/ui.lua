@@ -17,7 +17,8 @@ end
 --- Highlight GitHub references (#123) and URLs in a buffer, and set up gx keymap.
 --- @param buf number buffer handle
 --- @param repo_url string|nil repository base URL
-local function setup_github_refs(buf, repo_url)
+--- @param line_urls table|nil optional mapping of 0-indexed line number to URL
+local function setup_github_refs(buf, repo_url, line_urls)
 	local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
 
 	for i, line in ipairs(lines) do
@@ -47,6 +48,12 @@ local function setup_github_refs(buf, repo_url)
 		local cursor = vim.api.nvim_win_get_cursor(0)
 		local row, col = cursor[1], cursor[2]
 		local current_line = vim.api.nvim_buf_get_lines(buf, row - 1, row, false)[1] or ""
+
+		-- Check line-level URL mapping (e.g. CI check detailsUrl)
+		if line_urls and line_urls[row - 1] then
+			vim.ui.open(line_urls[row - 1])
+			return
+		end
 
 		-- Check #\d+ reference under cursor
 		if repo_url then
@@ -108,14 +115,78 @@ function M.format_comments_for_display(comments, format_date_fn)
 	return { lines = lines, hl_ranges = hl_ranges }
 end
 
+--- Map check conclusion/status to display symbol and highlight group.
+--- @param check table check run object from statusCheckRollup
+--- @return string symbol, string hl_group
+function M.format_check_status(check)
+	local status = check.status or ""
+	local conclusion = check.conclusion or ""
+
+	-- Not yet completed
+	if status == "IN_PROGRESS" or status == "QUEUED" or status == "PENDING" then
+		return "●", "DiagnosticWarn"
+	end
+
+	-- Completed with conclusion
+	if conclusion == "SUCCESS" then
+		return "✓", "DiagnosticOk"
+	elseif conclusion == "FAILURE" or conclusion == "TIMED_OUT" or conclusion == "STARTUP_FAILURE" then
+		return "✗", "DiagnosticError"
+	elseif conclusion == "NEUTRAL" or conclusion == "SKIPPED" then
+		return "-", "Comment"
+	elseif conclusion == "CANCELLED" or conclusion == "ACTION_REQUIRED" then
+		return "!", "DiagnosticWarn"
+	end
+
+	return "?", "Comment"
+end
+
+--- Deduplicate checks by name, keeping the latest entry for each.
+--- @param checks table[] statusCheckRollup array
+--- @return table[] deduplicated checks preserving first-appearance order
+function M.deduplicate_checks(checks)
+	local seen = {}
+	local order = {}
+	for _, check in ipairs(checks) do
+		local key = check.name or check.context or "unknown"
+		if not seen[key] then
+			table.insert(order, key)
+		end
+		seen[key] = check
+	end
+	local result = {}
+	for _, key in ipairs(order) do
+		table.insert(result, seen[key])
+	end
+	return result
+end
+
+--- Build summary string for checks (e.g. "2/3 passed").
+--- @param checks table[] statusCheckRollup array
+--- @return string
+function M.build_checks_summary(checks)
+	if #checks == 0 then
+		return ""
+	end
+	local passed = 0
+	for _, check in ipairs(checks) do
+		local conclusion = check.conclusion or ""
+		if conclusion == "SUCCESS" or conclusion == "NEUTRAL" or conclusion == "SKIPPED" then
+			passed = passed + 1
+		end
+	end
+	return string.format("%d/%d passed", passed, #checks)
+end
+
 --- Build display lines for PR overview window.
 --- @param pr_info table PR data from gh pr view
 --- @param issue_comments table[] issue-level comments
 --- @param format_date_fn fun(s: string): string
---- @return table { lines: string[], hl_ranges: table[] }
+--- @return table { lines: string[], hl_ranges: table[], check_urls: table, sections: table }
 function M.build_overview_lines(pr_info, issue_comments, format_date_fn)
 	local lines = {}
 	local hl_ranges = {}
+	local sections = {}
 
 	-- PR header
 	local title = string.format("PR #%d: %s", pr_info.number or 0, pr_info.title or "")
@@ -143,6 +214,7 @@ function M.build_overview_lines(pr_info, issue_comments, format_date_fn)
 	table.insert(lines, string.rep("-", 50))
 	local desc_header_line = #lines
 	table.insert(lines, "DESCRIPTION")
+	sections.description = #lines -- 1-indexed
 	table.insert(hl_ranges, { line = desc_header_line, hl = "Title" })
 	table.insert(lines, string.rep("-", 50))
 
@@ -155,11 +227,45 @@ function M.build_overview_lines(pr_info, issue_comments, format_date_fn)
 		end
 	end
 
+	-- CI Status
+	local raw_checks = pr_info.statusCheckRollup or {}
+	local checks = M.deduplicate_checks(raw_checks)
+	local check_urls = {}
+	table.insert(lines, "")
+	table.insert(lines, string.rep("-", 50))
+	local ci_header_line = #lines
+	local summary = M.build_checks_summary(checks)
+	if summary ~= "" then
+		table.insert(lines, string.format("CI STATUS (%s)", summary))
+	else
+		table.insert(lines, "CI STATUS")
+	end
+	sections.ci_status = #lines -- 1-indexed
+	table.insert(hl_ranges, { line = ci_header_line, hl = "Title" })
+	table.insert(lines, string.rep("-", 50))
+
+	if #checks == 0 then
+		table.insert(lines, "(no checks)")
+	else
+		for _, check in ipairs(checks) do
+			local name = check.name or check.context or "unknown"
+			local symbol, hl = M.format_check_status(check)
+			local conclusion = check.conclusion or check.status or ""
+			table.insert(lines, string.format("%s %s  %s", symbol, name, conclusion:lower()))
+			table.insert(hl_ranges, { line = #lines - 1, hl = hl })
+			local url = check.detailsUrl or check.targetUrl
+			if url then
+				check_urls[#lines - 1] = url
+			end
+		end
+	end
+
 	-- Comments
 	table.insert(lines, "")
 	table.insert(lines, string.rep("-", 50))
 	local comments_header_line = #lines
 	table.insert(lines, string.format("COMMENTS (%d)", #issue_comments))
+	sections.comments = #lines -- 1-indexed
 	table.insert(hl_ranges, { line = comments_header_line, hl = "Title" })
 	table.insert(lines, string.rep("-", 50))
 
@@ -185,10 +291,10 @@ function M.build_overview_lines(pr_info, issue_comments, format_date_fn)
 
 	-- Footer
 	table.insert(lines, "")
-	table.insert(lines, " c: new comment  R: refresh  q: close")
+	table.insert(lines, " 'd/'s/'c: sections  C: new comment  R: refresh  q: close")
 	table.insert(hl_ranges, { line = #lines - 1, hl = "Comment" })
 
-	return { lines = lines, hl_ranges = hl_ranges }
+	return { lines = lines, hl_ranges = hl_ranges, check_urls = check_urls, sections = sections }
 end
 
 --- Refresh extmarks (virtual text) for the current buffer.
@@ -507,11 +613,21 @@ function M.show_overview_float(pr_info, issue_comments, opts)
 		pcall(vim.api.nvim_buf_add_highlight, buf, ns, hl.hl, hl.line, 0, -1)
 	end
 
+	-- Set section marks
+	local marks = config.opts.overview and config.opts.overview.marks
+		or { description = "d", ci_status = "s", comments = "c" }
+	for section, mark in pairs(marks) do
+		local line = result.sections[section]
+		if line and mark then
+			vim.api.nvim_buf_set_mark(buf, mark, line, 0, {})
+		end
+	end
+
 	vim.keymap.set("n", "q", function()
 		vim.api.nvim_win_close(win, true)
 	end, { buffer = buf })
 
-	vim.keymap.set("n", "c", function()
+	vim.keymap.set("n", "C", function()
 		vim.api.nvim_win_close(win, true)
 		if opts.on_new_comment then
 			opts.on_new_comment()
@@ -525,7 +641,7 @@ function M.show_overview_float(pr_info, issue_comments, opts)
 		end
 	end, { buffer = buf, desc = "Refresh PR overview" })
 
-	setup_github_refs(buf, get_repo_base_url(pr_info.url))
+	setup_github_refs(buf, get_repo_base_url(pr_info.url), result.check_urls)
 end
 
 return M

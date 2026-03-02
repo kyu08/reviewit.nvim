@@ -145,7 +145,7 @@ function M.get_pr_overview(callback)
 		"pr",
 		"view",
 		"--json",
-		"number,title,body,labels,state,author,baseRefName,headRefName,url",
+		"number,title,body,labels,state,author,baseRefName,headRefName,url,statusCheckRollup",
 	}, callback)
 end
 
