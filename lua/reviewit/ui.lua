@@ -161,6 +161,52 @@ function M.deduplicate_checks(checks)
 	return result
 end
 
+--- Get sort priority for a check (lower = shown first).
+--- @param check table check run object from statusCheckRollup
+--- @return number priority, string name
+local function check_sort_key(check)
+	local status = check.status or ""
+	local conclusion = check.conclusion or ""
+	local name = check.name or check.context or "unknown"
+
+	local priority
+	if conclusion == "FAILURE" or conclusion == "TIMED_OUT" or conclusion == "STARTUP_FAILURE" then
+		priority = 1
+	elseif conclusion == "CANCELLED" or conclusion == "ACTION_REQUIRED" then
+		priority = 2
+	elseif conclusion == "SKIPPED" or conclusion == "NEUTRAL" then
+		priority = 3
+	elseif status == "IN_PROGRESS" or status == "QUEUED" or status == "PENDING" then
+		priority = 4
+	elseif conclusion == "SUCCESS" then
+		priority = 5
+	else
+		priority = 6
+	end
+
+	return priority, name
+end
+
+--- Sort checks by priority: failures first, then skipped/cancelled, then in-progress, then success.
+--- Within the same priority, checks are sorted alphabetically by name.
+--- @param checks table[] statusCheckRollup array
+--- @return table[] sorted copy of checks
+function M.sort_checks(checks)
+	local sorted = {}
+	for i, check in ipairs(checks) do
+		sorted[i] = check
+	end
+	table.sort(sorted, function(a, b)
+		local pa, na = check_sort_key(a)
+		local pb, nb = check_sort_key(b)
+		if pa ~= pb then
+			return pa < pb
+		end
+		return na < nb
+	end)
+	return sorted
+end
+
 --- Build summary string for checks (e.g. "2/3 passed").
 --- @param checks table[] statusCheckRollup array
 --- @return string
@@ -325,7 +371,7 @@ function M.build_overview_lines(pr_info, issue_comments, format_date_fn)
 
 	-- CI Status
 	local raw_checks = pr_info.statusCheckRollup or {}
-	local checks = M.deduplicate_checks(raw_checks)
+	local checks = M.sort_checks(M.deduplicate_checks(raw_checks))
 	local check_urls = {}
 	table.insert(lines, "")
 	table.insert(lines, string.rep("-", 50))
