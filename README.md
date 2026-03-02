@@ -39,34 +39,34 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
   "flexphere/fude.nvim",
   opts = {},
   cmd = {
-    "FudeStart", "FudeStop", "FudeToggle", "FudeDiff",
-    "FudeComment", "FudeSuggest", "FudeViewComment", "FudeListComments",
-    "FudeFiles", "FudeOverview", "FudeSubmit", "FudeBrowse",
-    "FudeViewed", "FudeUnviewed",
+    "FudeReviewStart", "FudeReviewStop", "FudeReviewToggle", "FudeReviewDiff",
+    "FudeReviewComment", "FudeReviewSuggest", "FudeReviewViewComment", "FudeReviewListComments",
+    "FudeReviewFiles", "FudeReviewOverview", "FudeReviewSubmit", "FudeReviewBrowse",
+    "FudeReviewViewed", "FudeReviewUnviewed",
   },
   keys = {
-    { "<leader>et", "<cmd>FudeToggle<cr>", desc = "Review: Toggle" },
-    { "<leader>es", "<cmd>FudeStart<cr>", desc = "Review: Start" },
-    { "<leader>eq", "<cmd>FudeStop<cr>", desc = "Review: Stop" },
-    { "<leader>ec", "<cmd>FudeComment<cr>", desc = "Review: Comment", mode = { "n" } },
-    { "<leader>ec", ":FudeComment<cr>", desc = "Review: Comment (selection)", mode = { "v" } },
-    { "<leader>eS", "<cmd>FudeSuggest<cr>", desc = "Review: Suggest change", mode = { "n" } },
-    { "<leader>eS", ":FudeSuggest<cr>", desc = "Review: Suggest change (selection)", mode = { "v" } },
-    { "<leader>ev", "<cmd>FudeViewComment<cr>", desc = "Review: View comments" },
-    { "<leader>ef", "<cmd>FudeFiles<cr>", desc = "Review: Changed files" },
-    { "<leader>eo", "<cmd>FudeOverview<cr>", desc = "Review: PR Overview" },
-    { "<leader>ed", "<cmd>FudeDiff<cr>", desc = "Review: Toggle diff" },
-    { "<leader>eb", "<cmd>FudeBrowse<cr>", desc = "Review: Open in browser" },
-    { "<leader>el", "<cmd>FudeListComments<cr>", desc = "Review: List comments" },
+    { "<leader>et", "<cmd>FudeReviewToggle<cr>", desc = "Review: Toggle" },
+    { "<leader>es", "<cmd>FudeReviewStart<cr>", desc = "Review: Start" },
+    { "<leader>eq", "<cmd>FudeReviewStop<cr>", desc = "Review: Stop" },
+    { "<leader>ec", "<cmd>FudeReviewComment<cr>", desc = "Review: Comment", mode = { "n" } },
+    { "<leader>ec", ":FudeReviewComment<cr>", desc = "Review: Comment (selection)", mode = { "v" } },
+    { "<leader>eS", "<cmd>FudeReviewSuggest<cr>", desc = "Review: Suggest change", mode = { "n" } },
+    { "<leader>eS", ":FudeReviewSuggest<cr>", desc = "Review: Suggest change (selection)", mode = { "v" } },
+    { "<leader>ev", "<cmd>FudeReviewViewComment<cr>", desc = "Review: View comments" },
+    { "<leader>ef", "<cmd>FudeReviewFiles<cr>", desc = "Review: Changed files" },
+    { "<leader>eo", "<cmd>FudeReviewOverview<cr>", desc = "Review: PR Overview" },
+    { "<leader>ed", "<cmd>FudeReviewDiff<cr>", desc = "Review: Toggle diff" },
+    { "<leader>eb", "<cmd>FudeReviewBrowse<cr>", desc = "Review: Open in browser" },
+    { "<leader>el", "<cmd>FudeReviewListComments<cr>", desc = "Review: List comments" },
     {
       "<leader>er",
       function() require("fude.comments").reply_to_comment() end,
       desc = "Review: Reply",
     },
-    { "<leader>em", "<cmd>FudeViewed<cr>", desc = "Review: Mark viewed" },
-    { "<leader>eM", "<cmd>FudeUnviewed<cr>", desc = "Review: Unmark viewed" },
+    { "<leader>em", "<cmd>FudeReviewViewed<cr>", desc = "Review: Mark viewed" },
+    { "<leader>eM", "<cmd>FudeReviewUnviewed<cr>", desc = "Review: Unmark viewed" },
     -- ]c / [c are set automatically as buffer-local keymaps during review mode
-    -- <Tab> toggles viewed state in the FudeFiles Telescope picker
+    -- <Tab> toggles viewed state in the FudeReviewFiles Telescope picker
   },
 }
 ```
@@ -74,35 +74,35 @@ PR code review inside Neovim. Review GitHub pull requests without leaving your e
 ## Usage
 
 1. Checkout a PR branch: `gh pr checkout <number>`
-2. Start review mode: `:FudeStart` (detects PR, fetches comments, sets up extmarks)
-3. Optionally open diff preview: `:FudeDiff` (toggle side-by-side diff view)
+2. Start review mode: `:FudeReviewStart` (detects PR, fetches comments, sets up extmarks)
+3. Optionally open diff preview: `:FudeReviewDiff` (toggle side-by-side diff view)
 4. Navigate code normally - the preview follows your movements when open
-5. Create comments with `:FudeComment` (saved as GitHub pending review)
-6. View existing comments with `:FudeViewComment`
-7. Submit pending comments as a review: `:FudeSubmit` (select Comment/Approve/Request Changes)
-8. Browse changed files with `:FudeFiles`
-9. View PR overview with `:FudeOverview`
-10. Stop review mode: `:FudeStop`
+5. Create comments with `:FudeReviewComment` (saved as GitHub pending review)
+6. View existing comments with `:FudeReviewViewComment`
+7. Submit pending comments as a review: `:FudeReviewSubmit` (select Comment/Approve/Request Changes)
+8. Browse changed files with `:FudeReviewFiles`
+9. View PR overview with `:FudeReviewOverview`
+10. Stop review mode: `:FudeReviewStop`
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
-| `:FudeStart` | Start review session (PR detection, comments, extmarks) |
-| `:FudeStop` | Stop review session |
-| `:FudeToggle` | Toggle review session |
-| `:FudeDiff` | Toggle diff preview window |
-| `:FudeComment` | Create pending comment on current line/selection |
-| `:FudeSuggest` | Create pending suggestion on current line/selection |
-| `:FudeViewComment` | View comments on current line |
-| `:FudeFiles` | List PR changed files (Telescope/quickfix) |
-| `:FudeOverview` | Show PR overview and issue-level comments |
-| `:FudeListComments` | List all PR review comments (Telescope) |
-| `:FudeListDrafts` | List all local draft comments (Telescope) |
-| `:FudeSubmit` | Submit pending comments as a review (Comment/Approve/Request Changes) |
-| `:FudeViewed` | Mark current file as viewed on GitHub |
-| `:FudeUnviewed` | Unmark current file as viewed on GitHub |
-| `:FudeBrowse` | Open PR in browser |
+| `:FudeReviewStart` | Start review session (PR detection, comments, extmarks) |
+| `:FudeReviewStop` | Stop review session |
+| `:FudeReviewToggle` | Toggle review session |
+| `:FudeReviewDiff` | Toggle diff preview window |
+| `:FudeReviewComment` | Create pending comment on current line/selection |
+| `:FudeReviewSuggest` | Create pending suggestion on current line/selection |
+| `:FudeReviewViewComment` | View comments on current line |
+| `:FudeReviewFiles` | List PR changed files (Telescope/quickfix) |
+| `:FudeReviewOverview` | Show PR overview and issue-level comments |
+| `:FudeReviewListComments` | List all PR review comments (Telescope) |
+| `:FudeReviewListDrafts` | List all local draft comments (Telescope) |
+| `:FudeReviewSubmit` | Submit pending comments as a review (Comment/Approve/Request Changes) |
+| `:FudeReviewViewed` | Mark current file as viewed on GitHub |
+| `:FudeReviewUnviewed` | Unmark current file as viewed on GitHub |
+| `:FudeReviewBrowse` | Open PR in browser |
 
 ## Configuration
 
@@ -135,7 +135,7 @@ require("fude").setup({
     width = 80,
     height = 80,
   },
-  -- Auto-open comment viewer when navigating to a comment line (]c/[c/FudeListComments)
+  -- Auto-open comment viewer when navigating to a comment line (]c/[c/FudeReviewListComments)
   auto_view_comment = true,
   -- strftime format for timestamps (system timezone)
   date_format = "%Y/%m/%d %H:%M",

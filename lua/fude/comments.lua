@@ -624,7 +624,7 @@ function M.reply_to_comment(comment_id)
 
 	-- GitHub API doesn't allow creating replies while a pending review exists
 	if state.pending_review_id then
-		vim.notify("fude.nvim: Cannot reply while pending review exists. Run :FudeSubmit first.", vim.log.levels.WARN)
+		vim.notify("fude.nvim: Cannot reply while pending review exists. Run :FudeReviewSubmit first.", vim.log.levels.WARN)
 		return
 	end
 

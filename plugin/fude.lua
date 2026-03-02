@@ -3,59 +3,59 @@ if vim.g.loaded_fude then
 end
 vim.g.loaded_fude = true
 
-vim.api.nvim_create_user_command("FudeStart", function()
+vim.api.nvim_create_user_command("FudeReviewStart", function()
 	require("fude").start()
 end, { desc = "Start PR review mode" })
 
-vim.api.nvim_create_user_command("FudeStop", function()
+vim.api.nvim_create_user_command("FudeReviewStop", function()
 	require("fude").stop()
 end, { desc = "Stop PR review mode" })
 
-vim.api.nvim_create_user_command("FudeToggle", function()
+vim.api.nvim_create_user_command("FudeReviewToggle", function()
 	require("fude").toggle()
 end, { desc = "Toggle PR review mode" })
 
-vim.api.nvim_create_user_command("FudeComment", function(opts)
+vim.api.nvim_create_user_command("FudeReviewComment", function(opts)
 	require("fude.comments").create_comment(opts.range > 0)
 end, { desc = "Create PR review comment", range = true })
 
-vim.api.nvim_create_user_command("FudeViewComment", function()
+vim.api.nvim_create_user_command("FudeReviewViewComment", function()
 	require("fude.comments").view_comments()
 end, { desc = "View PR review comments on current line" })
 
-vim.api.nvim_create_user_command("FudeFiles", function()
+vim.api.nvim_create_user_command("FudeReviewFiles", function()
 	require("fude.files").show()
 end, { desc = "List PR changed files" })
 
-vim.api.nvim_create_user_command("FudeOverview", function()
+vim.api.nvim_create_user_command("FudeReviewOverview", function()
 	require("fude.overview").show()
 end, { desc = "Show PR overview" })
 
-vim.api.nvim_create_user_command("FudeListComments", function()
+vim.api.nvim_create_user_command("FudeReviewListComments", function()
 	require("fude.comments").list_comments()
 end, { desc = "List PR review comments" })
 
-vim.api.nvim_create_user_command("FudeDiff", function()
+vim.api.nvim_create_user_command("FudeReviewDiff", function()
 	require("fude").toggle_diff()
 end, { desc = "Toggle diff preview" })
 
-vim.api.nvim_create_user_command("FudeSuggest", function(opts)
+vim.api.nvim_create_user_command("FudeReviewSuggest", function(opts)
 	require("fude.comments").suggest_change(opts.range > 0)
 end, { desc = "Suggest change on current line/selection", range = true })
 
-vim.api.nvim_create_user_command("FudeListDrafts", function()
+vim.api.nvim_create_user_command("FudeReviewListDrafts", function()
 	require("fude.comments").list_drafts()
 end, { desc = "List draft comments" })
 
-vim.api.nvim_create_user_command("FudeViewed", function()
+vim.api.nvim_create_user_command("FudeReviewViewed", function()
 	require("fude").mark_viewed()
 end, { desc = "Mark current file as viewed" })
 
-vim.api.nvim_create_user_command("FudeUnviewed", function()
+vim.api.nvim_create_user_command("FudeReviewUnviewed", function()
 	require("fude").unmark_viewed()
 end, { desc = "Unmark current file as viewed" })
 
-vim.api.nvim_create_user_command("FudeBrowse", function()
+vim.api.nvim_create_user_command("FudeReviewBrowse", function()
 	local state = require("fude.config").state
 	if not state.active or not state.pr_url then
 		vim.notify("fude.nvim: Not active", vim.log.levels.WARN)
@@ -64,7 +64,7 @@ vim.api.nvim_create_user_command("FudeBrowse", function()
 	vim.ui.open(state.pr_url)
 end, { desc = "Open PR in browser" })
 
-vim.api.nvim_create_user_command("FudeSubmit", function()
+vim.api.nvim_create_user_command("FudeReviewSubmit", function()
 	local state = require("fude.config").state
 	if not state.active then
 		vim.notify("fude.nvim: Not active", vim.log.levels.WARN)
