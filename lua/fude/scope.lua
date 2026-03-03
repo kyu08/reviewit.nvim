@@ -110,6 +110,7 @@ function M.show_telescope(scope_entries)
 	local actions = require("telescope.actions")
 	local action_state = require("telescope.actions.state")
 	local entry_display = require("telescope.pickers.entry_display")
+	local previewers = require("telescope.previewers")
 
 	local displayer = entry_display.create({
 		separator = " ",
@@ -137,6 +138,13 @@ function M.show_telescope(scope_entries)
 		table.insert(entries, entry)
 	end
 
+	local state = config.state
+	local files_mod = require("fude.files")
+	local gh_mod = require("fude.gh")
+	local preview_cache = {}
+	local inflight = {}
+	local preview_ns = vim.api.nvim_create_namespace("fude_scope_preview")
+
 	pickers
 		.new({}, {
 			prompt_title = "Review Scope",
@@ -147,6 +155,82 @@ function M.show_telescope(scope_entries)
 				end,
 			}),
 			sorter = conf.generic_sorter({}),
+			previewer = previewers.new_buffer_previewer({
+				title = "Changed Files",
+				define_preview = function(self, entry)
+					local bufnr = self.state.bufnr
+
+					local function apply_preview(files)
+						if not vim.api.nvim_buf_is_valid(bufnr) then
+							return
+						end
+						local lines, hls = M.format_scope_preview_lines(files, files_mod.status_icons)
+						vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, lines)
+						vim.api.nvim_buf_clear_namespace(bufnr, preview_ns, 0, -1)
+						for _, hl in ipairs(hls) do
+							vim.api.nvim_buf_add_highlight(bufnr, preview_ns, hl[4], hl[1], hl[2], hl[3])
+						end
+					end
+
+					if entry.is_full_pr then
+						self.state.current_sha = nil
+						local files = {}
+						for _, f in ipairs(state.changed_files) do
+							table.insert(files, {
+								filename = f.path,
+								status = f.status,
+								additions = f.additions,
+								deletions = f.deletions,
+							})
+						end
+						apply_preview(files)
+						return
+					end
+
+					local sha = entry.sha
+					if not sha then
+						return
+					end
+
+					self.state.current_sha = sha
+
+					if preview_cache[sha] then
+						apply_preview(preview_cache[sha])
+						return
+					end
+
+					vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Loading..." })
+					vim.api.nvim_buf_clear_namespace(bufnr, preview_ns, 0, -1)
+
+					if inflight[sha] then
+						return
+					end
+					inflight[sha] = true
+
+					gh_mod.get_commit_files(sha, function(err, raw_files)
+						inflight[sha] = nil
+						if err then
+							if vim.api.nvim_buf_is_valid(bufnr) and self.state.current_sha == sha then
+								vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, { "Error: " .. err })
+							end
+							return
+						end
+						local files = {}
+						for _, f in ipairs(raw_files or {}) do
+							table.insert(files, {
+								filename = f.filename,
+								status = f.status,
+								additions = f.additions,
+								deletions = f.deletions,
+							})
+						end
+						preview_cache[sha] = files
+						if self.state.current_sha == sha then
+							apply_preview(files)
+						end
+					end)
+				end,
+			}),
 			attach_mappings = function(prompt_bufnr, map)
 				actions.select_default:replace(function()
 					actions.close(prompt_bufnr)
@@ -489,6 +573,37 @@ function M.prev_scope()
 			M.apply_commit_scope(entry.sha)
 		end
 	end
+end
+
+--- Format preview lines for a scope entry's changed files.
+--- @param files table[] array of { filename, status, additions, deletions }
+--- @param status_icons table<string, string> status-to-icon map
+--- @return string[] lines formatted lines for the previewer
+--- @return table[] highlights { { line_0idx, col_start, col_end, hl_group } }
+function M.format_scope_preview_lines(files, status_icons)
+	if #files == 0 then
+		return { "No changed files" }, {}
+	end
+	local lines = { string.format("Changed files: %d", #files), "" }
+	local highlights = {}
+	for _, f in ipairs(files) do
+		local icon = (status_icons and status_icons[f.status]) or "?"
+		local adds = f.additions or 0
+		local dels = f.deletions or 0
+		local add_part = string.format("+%-4d", adds)
+		local del_part = string.format("-%-4d", dels)
+		local line = "  " .. icon .. " " .. add_part .. " " .. del_part .. " " .. f.filename
+		local line_idx = #lines -- 0-indexed
+
+		local status_hl = f.status == "added" and "DiffAdd" or f.status == "removed" and "DiffDelete" or "DiffChange"
+		table.insert(highlights, { line_idx, 2, 3, status_hl })
+		table.insert(highlights, { line_idx, 4, 4 + #add_part, "DiffAdd" })
+		local del_start = 4 + #add_part + 1
+		table.insert(highlights, { line_idx, del_start, del_start + #del_part, "DiffDelete" })
+
+		table.insert(lines, line)
+	end
+	return lines, highlights
 end
 
 --- Refresh the preview window if it is currently open.

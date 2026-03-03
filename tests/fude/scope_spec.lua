@@ -253,3 +253,106 @@ describe("find_commit_index", function()
 		assert.are.equal(3, scope.find_commit_index(commits, "ccc"))
 	end)
 end)
+
+describe("format_scope_preview_lines", function()
+	local icons = { added = "+", modified = "~", removed = "-", renamed = "R", copied = "C" }
+
+	it("formats multiple files with status icons and diff stats", function()
+		local files = {
+			{ filename = "lua/fude/scope.lua", status = "modified", additions = 10, deletions = 5 },
+			{ filename = "lua/fude/preview.lua", status = "added", additions = 50, deletions = 0 },
+			{ filename = "lua/fude/old.lua", status = "removed", additions = 0, deletions = 30 },
+		}
+		local lines = scope.format_scope_preview_lines(files, icons)
+
+		assert.are.equal("Changed files: 3", lines[1])
+		assert.are.equal("", lines[2])
+		assert.truthy(lines[3]:find("~"))
+		assert.truthy(lines[3]:find("+10"))
+		assert.truthy(lines[3]:find("-5"))
+		assert.truthy(lines[3]:find("lua/fude/scope.lua"))
+		assert.truthy(lines[4]:find("%+"))
+		assert.truthy(lines[4]:find("+50"))
+		assert.truthy(lines[5]:find("%-"))
+		assert.truthy(lines[5]:find("-30"))
+	end)
+
+	it("returns placeholder for empty file list", function()
+		local lines, hls = scope.format_scope_preview_lines({}, icons)
+		assert.are.equal(1, #lines)
+		assert.are.equal("No changed files", lines[1])
+		assert.are.equal(0, #hls)
+	end)
+
+	it("formats single file", function()
+		local files = {
+			{ filename = "README.md", status = "modified", additions = 3, deletions = 1 },
+		}
+		local lines = scope.format_scope_preview_lines(files, icons)
+		assert.are.equal("Changed files: 1", lines[1])
+		assert.are.equal(3, #lines)
+		assert.truthy(lines[3]:find("README.md"))
+	end)
+
+	it("uses ? for unknown status", function()
+		local files = {
+			{ filename = "test.lua", status = "unknown_status", additions = 1, deletions = 0 },
+		}
+		local lines = scope.format_scope_preview_lines(files, icons)
+		assert.truthy(lines[3]:find("?"))
+	end)
+
+	it("defaults additions and deletions to 0", function()
+		local files = {
+			{ filename = "test.lua", status = "added" },
+		}
+		local lines = scope.format_scope_preview_lines(files, icons)
+		assert.truthy(lines[3]:find("+0"))
+		assert.truthy(lines[3]:find("-0"))
+	end)
+
+	it("returns highlights for status icon, additions, and deletions", function()
+		local files = {
+			{ filename = "foo.lua", status = "modified", additions = 10, deletions = 5 },
+		}
+		local _, hls = scope.format_scope_preview_lines(files, icons)
+
+		-- 3 highlights per file line: status icon, additions, deletions
+		assert.are.equal(3, #hls)
+
+		-- Status icon highlight (DiffChange for modified)
+		assert.are.equal(2, hls[1][1]) -- line index (0-based, file lines start at line 2)
+		assert.are.equal(2, hls[1][2]) -- col start
+		assert.are.equal(3, hls[1][3]) -- col end
+		assert.are.equal("DiffChange", hls[1][4])
+
+		-- Additions highlight (DiffAdd)
+		assert.are.equal("DiffAdd", hls[2][4])
+
+		-- Deletions highlight (DiffDelete)
+		assert.are.equal("DiffDelete", hls[3][4])
+	end)
+
+	it("uses DiffAdd for added status and DiffDelete for removed status", function()
+		local files = {
+			{ filename = "new.lua", status = "added", additions = 1, deletions = 0 },
+			{ filename = "old.lua", status = "removed", additions = 0, deletions = 1 },
+		}
+		local _, hls = scope.format_scope_preview_lines(files, icons)
+
+		-- First file: added → DiffAdd for icon
+		assert.are.equal("DiffAdd", hls[1][4])
+		-- Second file: removed → DiffDelete for icon
+		assert.are.equal("DiffDelete", hls[4][4])
+	end)
+
+	it("returns 3 highlights per file", function()
+		local files = {
+			{ filename = "a.lua", status = "modified", additions = 1, deletions = 0 },
+			{ filename = "b.lua", status = "added", additions = 2, deletions = 0 },
+			{ filename = "c.lua", status = "removed", additions = 0, deletions = 3 },
+		}
+		local _, hls = scope.format_scope_preview_lines(files, icons)
+		assert.are.equal(9, #hls)
+	end)
+end)
